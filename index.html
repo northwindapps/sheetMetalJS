@@ -24,7 +24,8 @@ input[type=number] { width: 68px; background: #1a1a2e; color: #e0e0e0; border: 1
 .btn { display: block; width: 100%; padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: filter .15s; }
 .btn:hover { filter: brightness(1.2); }
 .btn-dxf { background: #b71c1c; color: #fff; margin-bottom: 8px; }
-.btn-svg { background: #0d47a1; color: #fff; }
+.btn-svg { background: #0d47a1; color: #fff; margin-bottom: 8px; }
+.btn-3d  { background: #1b5e20; color: #fff; }
 #cw { flex: 1; display: flex; align-items: center; justify-content: center; background: #0d1117; overflow: hidden; }
 canvas { background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,.5); }
 </style>
@@ -91,6 +92,7 @@ canvas { background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,.5); }
   <div>
     <button class="btn btn-dxf" onclick="exportDXF()">⬇ Export DXF</button>
     <button class="btn btn-svg" onclick="exportSVG()">⬇ Export SVG</button>
+    <button class="btn btn-3d"  onclick="open3D()">▶ 3D Preview</button>
   </div>
 </div>
 
@@ -345,6 +347,15 @@ function exportSVG() {
   });
   s += '</svg>';
   download(s, 'flat_pattern.svg', 'image/svg+xml');
+}
+
+function open3D() {
+  const q = new URLSearchParams({
+    W: M.W, D: M.D,
+    H0: M.H[0], H1: M.H[1], H2: M.H[2], H3: M.H[3],
+    T: M.T, BA: M.BA
+  });
+  window.open('preview3d.html?' + q, '_blank');
 }
 
 function download(text, name, mime) {

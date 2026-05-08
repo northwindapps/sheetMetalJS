@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>3D Box Preview</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; overflow: hidden; font-family: system-ui, sans-serif; color: #e0e0e0; }
+canvas { display: block; }
+
+#panel {
+  position: fixed; top: 16px; left: 16px;
+  background: rgba(15, 25, 50, 0.88);
+  border: 1px solid #4fc3f7;
+  border-radius: 10px; padding: 14px 16px;
+  font-size: 12px; line-height: 2;
+  backdrop-filter: blur(6px);
+  min-width: 190px;
+}
+#panel h2 { font-size: 13px; font-weight: 700; color: #4fc3f7; margin-bottom: 6px; }
+.dv { color: #4fc3f7; font-weight: 700; }
+
+#controls-hint {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,.45); color: #888;
+  font-size: 11px; padding: 6px 16px; border-radius: 20px;
+  pointer-events: none;
+}
+
+#btn-close {
+  position: fixed; top: 16px; right: 16px;
+  background: #0f3460; color: #4fc3f7;
+  border: 1px solid #4fc3f7; border-radius: 6px;
+  padding: 8px 18px; cursor: pointer; font-size: 13px; font-weight: 600;
+  transition: background .15s, color .15s;
+}
+#btn-close:hover { background: #4fc3f7; color: #0f3460; }
+
+#btn-rotate {
+  position: fixed; bottom: 16px; right: 16px;
+  background: rgba(15,52,96,.8); color: #90caf9;
+  border: 1px solid #4fc3f7; border-radius: 6px;
+  padding: 7px 14px; cursor: pointer; font-size: 12px;
+}
+#btn-rotate:hover { background: #4fc3f7; color: #0f3460; }
+</style>
+</head>
+<body>
+
+<div id="panel">
+  <h2>Box Preview</h2>
+  <div id="dims"></div>
+</div>
+
+<div id="controls-hint">Drag · Scroll to zoom · Right-drag to pan</div>
+
+<button id="btn-close" onclick="window.close()">✕ Close</button>
+<button id="btn-rotate">⟳ Auto-rotate: ON</button>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ── Parameters from URL ───────────────────────────────────────────────────────
+const q  = new URLSearchParams(location.search);
+const W  = parseFloat(q.get('W')  ?? 100);
+const D  = parseFloat(q.get('D')  ?? 100);
+const hF = parseFloat(q.get('H0') ?? 40);   // front
+const hB = parseFloat(q.get('H1') ?? 40);   // back
+const hR = parseFloat(q.get('H2') ?? 40);   // right
+const hL = parseFloat(q.get('H3') ?? 40);   // left
+const T  = parseFloat(q.get('T')  ?? 1.5);
+const BA = parseFloat(q.get('BA') ?? 2.0);
+
+// Flat blank bottom dimensions (what is actually cut and folded).
+// Each bend consumes BA from the flat bottom on that side.
+const iW = W - 2 * BA;   // flat blank width  = inner box width after bending
+const iD = D - 2 * BA;   // flat blank depth  = inner box depth after bending
+
+// Outer finished box dimensions after folding (walls add T on each outside face).
+// Outer flange height = T (bottom) + H_flat (wall rises from inner surface).
+// Expansion per bend = t/4 (neutral axis at t/2, split equally across both legs).
+// W/D each cross 2 bends → total gain = 2 × (t/4) = t/2.
+// Each flange crosses 1 bend → gain = t/4.
+const oW = iW + T / 2;
+const oD = iD + T / 2;
+const fmt = v => parseFloat(v.toFixed(2));
+const d4 = fmt(T / 4), d2 = fmt(T / 2);
+
+document.getElementById('dims').innerHTML =
+  `<b style="color:#90caf9;font-size:10px">FLAT BLANK</b><br>` +
+  `Bottom: <span class="dv">${fmt(iW)} × ${fmt(iD)}</span> mm<br>` +
+  `<br><b style="color:#90caf9;font-size:10px">FINISHED (after bending)</b><br>` +
+  `W: <span class="dv">${fmt(oW)}</span> mm <span style="color:#888">(+${d2})</span><br>` +
+  `D: <span class="dv">${fmt(oD)}</span> mm <span style="color:#888">(+${d2})</span><br>` +
+  `Front H₁: <span class="dv">${fmt(hF + T/4)}</span> mm <span style="color:#888">(+${d4})</span><br>` +
+  `Back&nbsp; H₂: <span class="dv">${fmt(hB + T/4)}</span> mm <span style="color:#888">(+${d4})</span><br>` +
+  `Right H₃: <span class="dv">${fmt(hR + T/4)}</span> mm <span style="color:#888">(+${d4})</span><br>` +
+  `Left&nbsp; H₄: <span class="dv">${fmt(hL + T/4)}</span> mm <span style="color:#888">(+${d4})</span><br>` +
+  `Thickness: <span class="dv">${T}</span> mm`;
+
+// ── Renderer ──────────────────────────────────────────────────────────────────
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+document.body.appendChild(renderer.domElement);
+
+// ── Scene ─────────────────────────────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x111827);
+
+// ── Camera ────────────────────────────────────────────────────────────────────
+const maxH = Math.max(hF, hB, hR, hL);
+// Finished height = flat flange + t/4 expansion, measured from inner bottom face
+const outerMaxH = T + maxH + T / 4;
+const boxCenterY = outerMaxH / 2;
+
+const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.5, 50000);
+camera.position.set(oW * 1.4, outerMaxH * 1.8, oD * 1.6);
+
+// ── Orbit Controls ────────────────────────────────────────────────────────────
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, boxCenterY, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.9;
+controls.minDistance = Math.max(oW, oD) * 0.3;
+controls.maxDistance = Math.max(oW, oD) * 10;
+controls.update();
+
+// Toggle auto-rotate button
+let autoRotate = true;
+document.getElementById('btn-rotate').addEventListener('click', () => {
+  autoRotate = !autoRotate;
+  controls.autoRotate = autoRotate;
+  document.getElementById('btn-rotate').textContent =
+    `⟳ Auto-rotate: ${autoRotate ? 'ON' : 'OFF'}`;
+});
+renderer.domElement.addEventListener('pointerdown', () => {
+  if (autoRotate) {
+    autoRotate = false;
+    controls.autoRotate = false;
+    document.getElementById('btn-rotate').textContent = '⟳ Auto-rotate: OFF';
+  }
+});
+
+// ── Lights ────────────────────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+
+const sun = new THREE.DirectionalLight(0xffeedd, 1.8);
+sun.position.set(oW * 2, outerMaxH * 5, oD * 1.5);
+sun.castShadow = true;
+const sc = Math.max(oW, oD) * 1.5;
+Object.assign(sun.shadow.camera, { left:-sc, right:sc, top:sc, bottom:-sc, near:1, far:sc*10 });
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.bias = -0.0005;
+scene.add(sun);
+
+const fill = new THREE.DirectionalLight(0x88aacc, 0.5);
+fill.position.set(-oW * 1.5, outerMaxH, -oD);
+scene.add(fill);
+
+scene.add(new THREE.HemisphereLight(0x334466, 0x111100, 0.4));
+
+// ── Material ──────────────────────────────────────────────────────────────────
+const metalMat = new THREE.MeshStandardMaterial({
+  color: 0xb8c0cc,
+  metalness: 0.78,
+  roughness: 0.22,
+});
+const edgeMat = new THREE.LineBasicMaterial({ color: 0x445566, opacity: 0.5, transparent: true });
+
+function addPart(geo, x, y, z) {
+  const mesh = new THREE.Mesh(geo, metalMat);
+  mesh.position.set(x, y, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+
+  // Edge lines for crisp silhouette
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 12), edgeMat);
+  edges.position.set(x, y, z);
+  scene.add(edges);
+}
+
+// ── Box geometry ──────────────────────────────────────────────────────────────
+// Expansion formula (user-defined, K=0.5 simplified):
+//   Each bend adds t/4 to EACH leg it touches.
+//   W/D cross 2 bends → expand by 2×(t/4) = t/2  → oW = iW + t/2, oD = iD + t/2
+//   Each flange crosses 1 bend → expand by t/4    → fhX = hX + t/4
+// Corner notches are open (matching flat pattern corner cutouts).
+
+const fhF = hF + T / 4,  fhB = hB + T / 4,
+      fhR = hR + T / 4,  fhL = hL + T / 4;
+
+// Bottom — finished span oW × oD
+addPart(new THREE.BoxGeometry(oW, T, oD), 0, T / 2, 0);
+
+// Front wall (H₁) — finished height fhF
+addPart(new THREE.BoxGeometry(oW, fhF, T), 0, T + fhF / 2, -(oD / 2 + T / 2));
+
+// Back wall (H₂)
+addPart(new THREE.BoxGeometry(oW, fhB, T), 0, T + fhB / 2,  oD / 2 + T / 2);
+
+// Right wall (H₃) — depth oD, notched corners remain open
+addPart(new THREE.BoxGeometry(T, fhR, oD), oW / 2 + T / 2, T + fhR / 2, 0);
+
+// Left wall (H₄)
+addPart(new THREE.BoxGeometry(T, fhL, oD), -(oW / 2 + T / 2), T + fhL / 2, 0);
+
+// ── Ground ────────────────────────────────────────────────────────────────────
+const gSize = Math.max(oW, oD) * 5;
+const grid = new THREE.GridHelper(gSize, 30, 0x223355, 0x1a2a44);
+scene.add(grid);
+
+const shadowPlane = new THREE.Mesh(
+  new THREE.PlaneGeometry(gSize, gSize),
+  new THREE.ShadowMaterial({ opacity: 0.25 })
+);
+shadowPlane.rotation.x = -Math.PI / 2;
+shadowPlane.receiveShadow = true;
+scene.add(shadowPlane);
+
+// ── Resize ────────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ── Render loop ───────────────────────────────────────────────────────────────
+(function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+})();
+</script>
+</body>
+</html>
