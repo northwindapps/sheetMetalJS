@@ -88,11 +88,8 @@ const iD = D - 2 * BA;   // flat blank depth  = inner box depth after bending
 
 // Outer finished box dimensions after folding (walls add T on each outside face).
 // Outer flange height = T (bottom) + H_flat (wall rises from inner surface).
-// Expansion per bend = t/4 (neutral axis at t/2, split equally across both legs).
-// W/D each cross 2 bends → total gain = 2 × (t/4) = t/2.
-// Each flange crosses 1 bend → gain = t/4.
-const oW = iW + T / 2;
-const oD = iD + T / 2;
+// BA = t/4 ensures flat blank expands back to W/D after bending.
+// Expansion per bend = t/4; W/D cross 2 bends → +t/2 total; flanges cross 1 → +t/4.
 const fmt = v => parseFloat(v.toFixed(2));
 const d4 = fmt(T / 4), d2 = fmt(T / 2);
 
@@ -100,8 +97,8 @@ document.getElementById('dims').innerHTML =
   `<b style="color:#90caf9;font-size:10px">FLAT BLANK</b><br>` +
   `Bottom: <span class="dv">${fmt(iW)} × ${fmt(iD)}</span> mm<br>` +
   `<br><b style="color:#90caf9;font-size:10px">FINISHED (after bending)</b><br>` +
-  `W: <span class="dv">${fmt(oW)}</span> mm <span style="color:#888">(+${d2})</span><br>` +
-  `D: <span class="dv">${fmt(oD)}</span> mm <span style="color:#888">(+${d2})</span><br>` +
+  `W: <span class="dv">${fmt(iW + T/2)}</span> mm <span style="color:#888">(+${d2})</span><br>` +
+  `D: <span class="dv">${fmt(iD + T/2)}</span> mm <span style="color:#888">(+${d2})</span><br>` +
   `Front H₁: <span class="dv">${fmt(hF + T/4)}</span> mm <span style="color:#888">(+${d4})</span><br>` +
   `Back&nbsp; H₂: <span class="dv">${fmt(hB + T/4)}</span> mm <span style="color:#888">(+${d4})</span><br>` +
   `Right H₃: <span class="dv">${fmt(hR + T/4)}</span> mm <span style="color:#888">(+${d4})</span><br>` +
@@ -198,29 +195,25 @@ function addPart(geo, x, y, z) {
 }
 
 // ── Box geometry ──────────────────────────────────────────────────────────────
-// Expansion formula (user-defined, K=0.5 simplified):
-//   Each bend adds t/4 to EACH leg it touches.
-//   W/D cross 2 bends → expand by 2×(t/4) = t/2  → oW = iW + t/2, oD = iD + t/2
-//   Each flange crosses 1 bend → expand by t/4    → fhX = hX + t/4
+// 3D uses flat blank dimensions (iW × iD bottom, flat flange lengths hX).
+// BA = t/4 already compensates for the t/4-per-leg bend expansion, so the
+// finished box recovers the original W/D targets (shown in the info panel above).
 // Corner notches are open (matching flat pattern corner cutouts).
 
-const fhF = hF + T / 4,  fhB = hB + T / 4,
-      fhR = hR + T / 4,  fhL = hL + T / 4;
+// Bottom plate — flat blank bottom section
+addPart(new THREE.BoxGeometry(iW, T, iD), 0, T / 2, 0);
 
-// Bottom — finished span oW × oD
-addPart(new THREE.BoxGeometry(oW, T, oD), 0, T / 2, 0);
-
-// Front wall (H₁) — finished height fhF
-addPart(new THREE.BoxGeometry(oW, fhF, T), 0, T + fhF / 2, -(oD / 2 + T / 2));
+// Front wall (H₁)
+addPart(new THREE.BoxGeometry(iW, hF, T), 0, T + hF / 2, -(iD / 2 + T / 2));
 
 // Back wall (H₂)
-addPart(new THREE.BoxGeometry(oW, fhB, T), 0, T + fhB / 2,  oD / 2 + T / 2);
+addPart(new THREE.BoxGeometry(iW, hB, T), 0, T + hB / 2,  iD / 2 + T / 2);
 
-// Right wall (H₃) — depth oD, notched corners remain open
-addPart(new THREE.BoxGeometry(T, fhR, oD), oW / 2 + T / 2, T + fhR / 2, 0);
+// Right wall (H₃) — depth iD, notched corners stay open
+addPart(new THREE.BoxGeometry(T, hR, iD), iW / 2 + T / 2, T + hR / 2, 0);
 
 // Left wall (H₄)
-addPart(new THREE.BoxGeometry(T, fhL, oD), -(oW / 2 + T / 2), T + fhL / 2, 0);
+addPart(new THREE.BoxGeometry(T, hL, iD), -(iW / 2 + T / 2), T + hL / 2, 0);
 
 // ── Ground ────────────────────────────────────────────────────────────────────
 const gSize = Math.max(oW, oD) * 5;

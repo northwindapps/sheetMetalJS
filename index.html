@@ -70,12 +70,21 @@ canvas { background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,.5); }
   <div class="sec">
     <div class="sec-ttl">Bend Parameters</div>
     <div class="p">
-      <div class="p-head"><span>Bend Allowance</span><span><span class="val" id="v-S">2.0</span> <span class="unit">mm/bend</span></span></div>
-      <div class="p-row"><input type="range" id="s-S" min="0" max="10" step="0.1" value="2"><input type="number" id="n-S" min="0" max="10" step="0.1" value="2"></div>
-    </div>
-    <div class="p">
       <div class="p-head"><span>Thickness t</span><span><span class="val" id="v-T">1.5</span> <span class="unit">mm</span></span></div>
       <div class="p-row"><input type="range" id="s-T" min="0.5" max="6" step="0.1" value="1.5"><input type="number" id="n-T" min="0.5" max="6" step="0.1" value="1.5"></div>
+    </div>
+    <div class="p">
+      <div class="p-head"><span>Inner radius r</span><span><span class="val" id="v-R">1.5</span> <span class="unit">mm</span></span></div>
+      <div class="p-row"><input type="range" id="s-R" min="0" max="10" step="0.1" value="1.5"><input type="number" id="n-R" min="0" max="10" step="0.1" value="1.5"></div>
+    </div>
+    <div class="p">
+      <div class="p-head"><span>K-factor</span><span><span class="val" id="v-K">0.33</span></span></div>
+      <div class="p-row"><input type="range" id="s-K" min="0.1" max="0.5" step="0.01" value="0.33"><input type="number" id="n-K" min="0.1" max="0.5" step="0.01" value="0.33"></div>
+      <div style="font-size:10px;color:#90caf9;margin-top:3px">air bend 0.33 · bottoming 0.38 · coining 0.42</div>
+    </div>
+    <div class="p">
+      <div class="p-head"><span>Bend Allowance</span><span><span class="val" id="v-BA">3.13</span> <span class="unit">mm/bend</span></span></div>
+      <div style="font-size:10px;color:#90caf9">= π/2 × (r + K · t) &nbsp;·&nbsp; auto-computed</div>
     </div>
     <div class="warn" id="warn">⚠ W or D too small for bend allowance</div>
   </div>
@@ -100,14 +109,15 @@ canvas { background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,.5); }
 
 <script>
 // ── Model ──────────────────────────────────────────────────────────────────────
-const M = { W:100, D:100, H:[40,40,40,40], BA:2, T:1.5 };
+const M = { W:100, D:100, H:[40,40,40,40], T:1.5, R:1.5, K:0.33 };
 
 // ── Geometry ──────────────────────────────────────────────────────────────────
 // Heights index: 0=front(top), 1=back(bottom), 2=right, 3=left
 // All values in mm; Y axis points down in canvas/drawing space.
 // DXF output flips Y so positive Y is up (standard CAD convention).
 function geo() {
-  const { W, D, H, BA } = M;
+  const { W, D, H, T, R, K } = M;
+  const BA = (Math.PI / 2) * (R + K * T);   // BA = π/2 × (r + K·t)
   const [hF, hB, hR, hL] = H;
   const iW = W - 2 * BA;   // flat bottom width  (W minus two bend allowances)
   const iD = D - 2 * BA;   // flat bottom depth
@@ -276,7 +286,7 @@ function gridStep(range) {
 }
 
 // ── Controls ──────────────────────────────────────────────────────────────────
-function bind(slId, nId, vId, key, idx) {
+function bind(slId, nId, vId, key, idx, onAfter) {
   const sl = document.getElementById(slId);
   const ni = document.getElementById(nId);
   const vl = document.getElementById(vId);
@@ -285,11 +295,17 @@ function bind(slId, nId, vId, key, idx) {
     sl.value = v; ni.value = v;
     vl.textContent = v % 1 === 0 ? v : v.toFixed(1);
     if (idx === undefined) M[key] = v; else M[key][idx] = v;
+    if (onAfter) onAfter(v);
     draw();
   }
   sl.addEventListener('input',  e => set(e.target.value));
   ni.addEventListener('input',  e => set(e.target.value));
   ni.addEventListener('change', e => set(e.target.value));
+}
+
+function updateBA() {
+  const ba = (Math.PI / 2) * (M.R + M.K * M.T);
+  document.getElementById('v-BA').textContent = ba.toFixed(2);
 }
 
 bind('s-W',  'n-W',  'v-W',  'W');
@@ -298,8 +314,9 @@ bind('s-H0', 'n-H0', 'v-H0', 'H', 0);
 bind('s-H1', 'n-H1', 'v-H1', 'H', 1);
 bind('s-H2', 'n-H2', 'v-H2', 'H', 2);
 bind('s-H3', 'n-H3', 'v-H3', 'H', 3);
-bind('s-S',  'n-S',  'v-S',  'BA');
-bind('s-T',  'n-T',  'v-T',  'T');
+bind('s-T',  'n-T',  'v-T',  'T', undefined, updateBA);
+bind('s-R',  'n-R',  'v-R',  'R', undefined, updateBA);
+bind('s-K',  'n-K',  'v-K',  'K', undefined, updateBA);
 
 window.addEventListener('resize', draw);
 
@@ -350,10 +367,11 @@ function exportSVG() {
 }
 
 function open3D() {
+  const ba = (Math.PI / 2) * (M.R + M.K * M.T);
   const q = new URLSearchParams({
     W: M.W, D: M.D,
     H0: M.H[0], H1: M.H[1], H2: M.H[2], H3: M.H[3],
-    T: M.T, BA: M.BA
+    T: M.T, BA: ba.toFixed(4)
   });
   window.open('preview3d.html?' + q, '_blank');
 }
