@@ -5,41 +5,18 @@ import ARKit
 
 // 1. 全体で共有するデータクラス
 class MetalDesign: ObservableObject {
-@Published var width: Float = 0.1
-@Published var depth: Float = 0.1
-@Published var bendProgress: Float = 0.0
-@Published var heights: [Float] = [0.04, 0.04, 0.04, 0.04]
-// 伸び値 (1曲げあたり 1mm〜5mm 程度変化するシミュレーション用)
-@Published var stretchFactor: Float = 0.002 // 2mm
+    @Published var width: Float = 0.1
+    @Published var depth: Float = 0.1
+    @Published var bendProgress: Float = 0.0
+    @Published var heights: [Float] = [0.04, 0.04, 0.04, 0.04]
+    // 曲げ条件（BA = π/2 × (r + K·t)）
+    @Published var thickness: Float = 0.0015    // 板厚 t (m) = 1.5mm
+    @Published var innerRadius: Float = 0.0015  // 内側半径 r (m) = 1.5mm
+    @Published var kFactor: Float = 0.33        // Kファクター (空曲げ: 0.33, 底付き: 0.38, コイニング: 0.42)
+    // 曲げ代（自動計算・読み取り専用）
+    var bendAllowance: Float { (.pi / 2) * (innerRadius + kFactor * thickness) }
 }
 
-
-
-//struct ContentView: View {
-//    @StateObject var design = MetalDesign()
-//    @State private var selectedTab = 0
-//
-//    var body: some View {
-//        TabView(selection: $selectedTab) {
-//            // タブ1: 3D AR
-//            ZStack(alignment: .bottom) {
-//                ARSCNViewContainer(design: design)
-//                    .edgesIgnoringSafeArea(.all)
-//
-//                VStack {
-//                    Text("3D AR シミュレーター").padding().background(.ultraThinMaterial).cornerRadius(10)
-//                    Slider(value: $design.bendProgress, in: 0...1).padding()
-//                    Text("Height: \(Int(design.height * 1000))mm").font(.caption).bold()
-//                }.padding(.bottom, 50)
-//            }
-//            .tabItem { Label("3D AR", systemImage: "arkit") }.tag(0)
-//
-//            // タブ2: 2D Design
-//            DesignMapView(design: design)
-//                .tabItem { Label("2D Design", systemImage: "square.dashed") }.tag(1)
-//        }
-//    }
-//}
 
 struct ContentView: View {
     @StateObject var design = MetalDesign()
@@ -108,14 +85,14 @@ struct DesignMapView: View {
                     let w = CGFloat(design.width) * scale
                     let d = CGFloat(design.depth) * scale
                     let h = design.heights.map { CGFloat($0) * scale }
-                    let s = CGFloat(design.stretchFactor) * scale
-                    
+                    let ba = CGFloat(design.bendAllowance) * scale
+
                     let centerX: CGFloat = 175
                     let centerY: CGFloat = 175
-                    
-                    // 伸び値を引いた底面の有効サイズ
-                    let innerW = w - (s * 2)
-                    let innerD = d - (s * 2)
+
+                    // 曲げ代を引いた底面フラットブランクサイズ
+                    let innerW = w - (ba * 2)
+                    let innerD = d - (ba * 2)
 
                     // 1. 底面（曲げ線枠）
                     Rectangle()
@@ -151,9 +128,9 @@ struct DesignMapView: View {
                     }
                     .stroke(Color.primary, lineWidth: 2)
 
-                    // 3. 寸法テキストの配置（一部抜粋）
+                    // 3. 寸法テキストの配置
                     Group {
-                        Text("\(Int(design.width * 1000))")
+                        Text("W=\(Int(design.width * 1000)) BA=\(String(format:"%.1f", design.bendAllowance * 1000))mm")
                             .font(.caption2).position(x: centerX, y: centerY + innerD/2 + 20)
                         Text("\(Int(design.heights[0] * 1000))")
                             .font(.caption2).position(x: centerX + innerW/2 + 15, y: centerY - innerD/2 - h[0]/2)
@@ -182,7 +159,26 @@ struct DesignMapView: View {
                         }
                     }
                     Divider()
-                    SliderGroup(label: "伸び値 (S)", value: $design.stretchFactor, range: 0.0...0.005)
+                    SliderGroup(label: "板厚 (t)", value: $design.thickness, range: 0.0005...0.004)
+                    SliderGroup(label: "内半径 (r)", value: $design.innerRadius, range: 0.0005...0.006)
+                    VStack(alignment: .leading) {
+                        HStack {
+                            Text("Kファクター")
+                            Spacer()
+                            Text(String(format: "%.2f", design.kFactor)).bold()
+                        }
+                        Slider(value: $design.kFactor, in: 0.1...0.5)
+                        Text("空曲げ 0.33 · 底付き 0.38 · コイニング 0.42")
+                            .font(.caption2).foregroundColor(.secondary)
+                    }
+                    HStack {
+                        Text("曲げ代 BA")
+                        Spacer()
+                        Text(String(format: "%.2f mm", design.bendAllowance * 1000))
+                            .bold().foregroundColor(.orange)
+                    }
+                    Text("= π/2 × (r + K · t)  ※自動計算")
+                        .font(.caption2).foregroundColor(.secondary)
                 }
                 .padding()
                 .background(Color.secondary.opacity(0.1))
@@ -247,10 +243,9 @@ struct ARSCNViewContainer: UIViewRepresentable {
         setupBox(node: baseNode)
 
         let angle = Float.pi / 2
-        
-        // 曲げが進むにつれて発生する「伸び」を計算
-        // bendProgressに合わせて、最大で stretchFactor 分だけ位置を外側にずらす
-        let currentStretch = design.stretchFactor * design.bendProgress
+
+        // 曲げが進むにつれてフランジが外側へ移動する量（BA分）
+        let currentStretch = design.bendAllowance * design.bendProgress
         
         for i in 0..<4 {
             if let pivot = baseNode.childNode(withName: "pivot_\(i)", recursively: true) {
@@ -276,24 +271,28 @@ struct ARSCNViewContainer: UIViewRepresentable {
 
 
     func setupBox(node: SCNNode) {
-            let mat = SCNMaterial(); mat.diffuse.contents = UIColor.lightGray; mat.metalness.contents = 1.0
-            let bottom = SCNNode(geometry: SCNBox(width: CGFloat(design.width), height: 0.002, length: CGFloat(design.depth), chamferRadius: 0))
-            bottom.name = "bottom"; bottom.geometry?.materials = [mat]; node.addChildNode(bottom)
+        let mat = SCNMaterial(); mat.diffuse.contents = UIColor.lightGray; mat.metalness.contents = 1.0
+        let ba = design.bendAllowance
+        let t = design.thickness
+        let iW = design.width - 2 * ba   // フラットブランク幅
+        let iD = design.depth - 2 * ba   // フラットブランク奥行き
+        let bottom = SCNNode(geometry: SCNBox(width: CGFloat(iW), height: CGFloat(t), length: CGFloat(iD), chamferRadius: 0))
+        bottom.name = "bottom"; bottom.geometry?.materials = [mat]; node.addChildNode(bottom)
 
-            for i in 0..<4 {
-                let h = design.heights[i]
-                let sw = (i < 2) ? design.width : design.depth
-                let side = SCNNode(geometry: SCNBox(width: CGFloat(sw), height: CGFloat(h), length: 0.002, chamferRadius: 0))
-                side.geometry?.materials = [mat]
-                let pivot = SCNNode(); pivot.name = "pivot_\(i)"
-                if i == 0 { pivot.position = SCNVector3(0, 0, -design.depth/2) }
-                else if i == 1 { pivot.position = SCNVector3(0, 0, design.depth/2) }
-                else if i == 2 { pivot.position = SCNVector3(design.width/2, 0, 0); pivot.eulerAngles.y = .pi/2 }
-                else if i == 3 { pivot.position = SCNVector3(-design.width/2, 0, 0); pivot.eulerAngles.y = .pi/2 }
-                side.position = SCNVector3(0, h/2, 0)
-                pivot.addChildNode(side); node.addChildNode(pivot)
-            }
+        for i in 0..<4 {
+            let h = design.heights[i]
+            let sw: Float = (i < 2) ? iW : iD
+            let side = SCNNode(geometry: SCNBox(width: CGFloat(sw), height: CGFloat(h), length: CGFloat(t), chamferRadius: 0))
+            side.geometry?.materials = [mat]
+            let pivot = SCNNode(); pivot.name = "pivot_\(i)"
+            if i == 0 { pivot.position = SCNVector3(0, 0, -iD/2) }
+            else if i == 1 { pivot.position = SCNVector3(0, 0, iD/2) }
+            else if i == 2 { pivot.position = SCNVector3(iW/2, 0, 0); pivot.eulerAngles.y = .pi/2 }
+            else if i == 3 { pivot.position = SCNVector3(-iW/2, 0, 0); pivot.eulerAngles.y = .pi/2 }
+            side.position = SCNVector3(0, h/2, 0)
+            pivot.addChildNode(side); node.addChildNode(pivot)
         }
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
