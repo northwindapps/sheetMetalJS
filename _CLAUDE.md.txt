@@ -1,0 +1,27 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Overview
+
+iOS app (Swift/SwiftUI) for sheet metal (板金) bending simulation. Two tabs: a 3D AR view powered by ARKit/SceneKit, and a 2D flat-pattern (展開図) design view. Despite the folder name `sheetMetalJS`, this is a native Swift project.
+
+## Build & Run
+
+Open in Xcode and run on a physical iOS device (ARKit requires real hardware). There is no `Package.swift` or `.xcodeproj` in the repo — the current file (`test.swift`) is intended to be integrated into an Xcode project targeting iOS.
+
+## Architecture
+
+All code lives in [test.swift](test.swift). The data flow is:
+
+- **`MetalDesign`** — `ObservableObject` holding all shared state: `width`, `depth`, `heights[4]` (front/back/right/left flange heights in metres), `bendProgress` (0–1 slider), and `stretchFactor` (bend stretch allowance in metres).
+- **`ContentView`** — root `TabView` wiring the two tabs together, sharing one `MetalDesign` instance.
+- **`ARSCNViewContainer`** (`UIViewRepresentable`) — wraps `ARSCNView`. `setupBox()` builds the SceneKit geometry (bottom plate + 4 pivot nodes, one per flange). `updateUIView` tears down and rebuilds geometry on every state change, then animates each `pivot_N` node: front/back flanges fold first (0–0.5 of `bendProgress`), left/right flanges fold second (0.5–1.0). `stretchFactor * bendProgress` is applied as a positional offset to each pivot to simulate material stretch. A `Coordinator` handles pan (rotate) and pinch (scale) gestures on the base node.
+- **`DesignMapView`** — 2D flat-pattern canvas drawn with `Rectangle` (fold lines) and `Path` (flanges), scaled by a fixed factor of 1800 to convert metres → screen points. Shows width/front-height dimensions as `Text` labels.
+- **`SliderGroup`** — reusable `VStack` with a label, mm readout, and `Slider`.
+
+## Key conventions
+
+- All dimensions are stored in **metres** internally; multiply by 1000 to display as mm.
+- `heights` is a 4-element array indexed `[front, back, right, left]` — this ordering is used consistently across the 2D drawing, the 3D pivot setup, and the bend-animation logic.
+- The 2D canvas uses a hardcoded `centerX/centerY = 175` within a `350×350` frame; layout math is relative to that centre point.

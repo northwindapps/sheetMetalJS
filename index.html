@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sheet Metal Flat Pattern</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; display: flex; height: 100vh; overflow: hidden; }
+#sidebar { width: 270px; min-width: 270px; background: #16213e; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+h1 { font-size: 13px; font-weight: 700; color: #4fc3f7; text-transform: uppercase; letter-spacing: 1px; padding-bottom: 10px; border-bottom: 1px solid #0f3460; }
+.sec { background: #0f3460; border-radius: 8px; padding: 12px; }
+.sec-ttl { font-size: 10px; font-weight: 700; color: #90caf9; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+.p { margin-bottom: 10px; }
+.p:last-child { margin-bottom: 0; }
+.p-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; margin-bottom: 4px; }
+.unit { font-size: 10px; color: #90caf9; }
+.val { font-weight: 700; color: #4fc3f7; }
+.p-row { display: flex; align-items: center; gap: 8px; }
+input[type=range] { flex: 1; accent-color: #4fc3f7; cursor: pointer; }
+input[type=number] { width: 68px; background: #1a1a2e; color: #e0e0e0; border: 1px solid #4fc3f7; border-radius: 4px; padding: 3px 6px; font-size: 12px; text-align: right; }
+.info { background: #0a2744; border-radius: 6px; padding: 10px; font-size: 12px; line-height: 2; }
+.iv { color: #4fc3f7; font-weight: 700; }
+.warn { color: #ff8a65; font-size: 11px; margin-top: 6px; display: none; }
+.btn { display: block; width: 100%; padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: filter .15s; }
+.btn:hover { filter: brightness(1.2); }
+.btn-dxf { background: #b71c1c; color: #fff; margin-bottom: 8px; }
+.btn-svg { background: #0d47a1; color: #fff; }
+#cw { flex: 1; display: flex; align-items: center; justify-content: center; background: #0d1117; overflow: hidden; }
+canvas { background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,.5); }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h1>Sheet Metal Flat Pattern</h1>
+
+  <div class="sec">
+    <div class="sec-ttl">Box Dimensions</div>
+    <div class="p">
+      <div class="p-head"><span>Width W</span><span><span class="val" id="v-W">100</span> <span class="unit">mm</span></span></div>
+      <div class="p-row"><input type="range" id="s-W" min="20" max="500" step="1" value="100"><input type="number" id="n-W" min="20" max="500" step="1" value="100"></div>
+    </div>
+    <div class="p">
+      <div class="p-head"><span>Depth D</span><span><span class="val" id="v-D">100</span> <span class="unit">mm</span></span></div>
+      <div class="p-row"><input type="range" id="s-D" min="20" max="500" step="1" value="100"><input type="number" id="n-D" min="20" max="500" step="1" value="100"></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-ttl">Flange Heights</div>
+    <div class="p">
+      <div class="p-head"><span>Front H₁</span><span><span class="val" id="v-H0">40</span> <span class="unit">mm</span></span></div>
+      <div class="p-row"><input type="range" id="s-H0" min="5" max="200" step="1" value="40"><input type="number" id="n-H0" min="5" max="200" step="1" value="40"></div>
+    </div>
+    <div class="p">
+      <div class="p-head"><span>Back H₂</span><span><span class="val" id="v-H1">40</span> <span class="unit">mm</span></span></div>
+      <div class="p-row"><input type="range" id="s-H1" min="5" max="200" step="1" value="40"><input type="number" id="n-H1" min="5" max="200" step="1" value="40"></div>
+    </div>
+    <div class="p">
+      <div class="p-head"><span>Right H₃</span><span><span class="val" id="v-H2">40</span> <span class="unit">mm</span></span></div>
+      <div class="p-row"><input type="range" id="s-H2" min="5" max="200" step="1" value="40"><input type="number" id="n-H2" min="5" max="200" step="1" value="40"></div>
+    </div>
+    <div class="p">
+      <div class="p-head"><span>Left H₄</span><span><span class="val" id="v-H3">40</span> <span class="unit">mm</span></span></div>
+      <div class="p-row"><input type="range" id="s-H3" min="5" max="200" step="1" value="40"><input type="number" id="n-H3" min="5" max="200" step="1" value="40"></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-ttl">Bend Parameters</div>
+    <div class="p">
+      <div class="p-head"><span>Bend Allowance</span><span><span class="val" id="v-S">2.0</span> <span class="unit">mm/bend</span></span></div>
+      <div class="p-row"><input type="range" id="s-S" min="0" max="10" step="0.1" value="2"><input type="number" id="n-S" min="0" max="10" step="0.1" value="2"></div>
+    </div>
+    <div class="p">
+      <div class="p-head"><span>Thickness t</span><span><span class="val" id="v-T">1.5</span> <span class="unit">mm</span></span></div>
+      <div class="p-row"><input type="range" id="s-T" min="0.5" max="6" step="0.1" value="1.5"><input type="number" id="n-T" min="0.5" max="6" step="0.1" value="1.5"></div>
+    </div>
+    <div class="warn" id="warn">⚠ W or D too small for bend allowance</div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-ttl">Blank Size</div>
+    <div class="info">
+      Total W: <span class="iv" id="i-fw">—</span> mm<br>
+      Total H: <span class="iv" id="i-fh">—</span> mm<br>
+      Bottom: <span class="iv" id="i-bot">—</span>
+    </div>
+  </div>
+
+  <div>
+    <button class="btn btn-dxf" onclick="exportDXF()">⬇ Export DXF</button>
+    <button class="btn btn-svg" onclick="exportSVG()">⬇ Export SVG</button>
+  </div>
+</div>
+
+<div id="cw"><canvas id="c"></canvas></div>
+
+<script>
+// ── Model ──────────────────────────────────────────────────────────────────────
+const M = { W:100, D:100, H:[40,40,40,40], BA:2, T:1.5 };
+
+// ── Geometry ──────────────────────────────────────────────────────────────────
+// Heights index: 0=front(top), 1=back(bottom), 2=right, 3=left
+// All values in mm; Y axis points down in canvas/drawing space.
+// DXF output flips Y so positive Y is up (standard CAD convention).
+function geo() {
+  const { W, D, H, BA } = M;
+  const [hF, hB, hR, hL] = H;
+  const iW = W - 2 * BA;   // flat bottom width  (W minus two bend allowances)
+  const iD = D - 2 * BA;   // flat bottom depth
+  if (iW <= 0 || iD <= 0) return null;
+  const tW = hL + iW + hR;
+  const tH = hF + iD + hB;
+  // Cross-shaped profile, clockwise from top-left of front flange
+  const profile = [
+    [hL,        0         ],
+    [hL + iW,   0         ],
+    [hL + iW,   hF        ],
+    [hL + iW + hR, hF     ],
+    [hL + iW + hR, hF + iD],
+    [hL + iW,   hF + iD   ],
+    [hL + iW,   hF + iD + hB],
+    [hL,        hF + iD + hB],
+    [hL,        hF + iD   ],
+    [0,         hF + iD   ],
+    [0,         hF        ],
+    [hL,        hF        ],
+  ];
+  const bends = [
+    [[hL, hF],      [hL + iW, hF]     ],  // front fold line
+    [[hL, hF + iD], [hL + iW, hF + iD]],  // back fold line
+    [[hL, hF],      [hL, hF + iD]     ],  // left fold line
+    [[hL + iW, hF], [hL + iW, hF + iD]],  // right fold line
+  ];
+  return { iW, iD, tW, tH, hF, hB, hR, hL, profile, bends };
+}
+
+// ── Canvas ────────────────────────────────────────────────────────────────────
+const cnv = document.getElementById('c');
+const ctx = cnv.getContext('2d');
+const DIM = 60;  // px margin reserved for dimension lines
+
+function draw() {
+  const g = geo();
+  document.getElementById('warn').style.display = g ? 'none' : 'block';
+  if (!g) { ctx.clearRect(0, 0, cnv.width, cnv.height); return; }
+
+  document.getElementById('i-fw').textContent = g.tW.toFixed(1);
+  document.getElementById('i-fh').textContent = g.tH.toFixed(1);
+  document.getElementById('i-bot').textContent = `${g.iW.toFixed(1)} × ${g.iD.toFixed(1)} mm`;
+
+  const cw = cnv.parentElement.clientWidth  - 20;
+  const ch = cnv.parentElement.clientHeight - 20;
+  cnv.width = cw; cnv.height = ch;
+
+  const avW = cw - DIM * 2;
+  const avH = ch - DIM * 2;
+  const sc  = Math.min(avW / g.tW, avH / g.tH, 5);
+  const ox  = DIM + (avW - g.tW * sc) / 2;
+  const oy  = DIM + (avH - g.tH * sc) / 2;
+  const tx  = x => ox + x * sc;
+  const ty  = y => oy + y * sc;
+
+  ctx.clearRect(0, 0, cw, ch);
+
+  // Grid
+  const gs = gridStep(Math.min(g.tW, g.tH));
+  ctx.save();
+  ctx.strokeStyle = '#ddd'; ctx.lineWidth = 0.5;
+  for (let x = 0; x <= g.tW; x += gs) { ctx.beginPath(); ctx.moveTo(tx(x), oy); ctx.lineTo(tx(x), ty(g.tH)); ctx.stroke(); }
+  for (let y = 0; y <= g.tH; y += gs) { ctx.beginPath(); ctx.moveTo(ox, ty(y)); ctx.lineTo(tx(g.tW), ty(y)); ctx.stroke(); }
+  ctx.restore();
+
+  // Blank fill
+  ctx.save();
+  ctx.fillStyle = '#ddeeff';
+  ctx.beginPath();
+  g.profile.forEach(([x, y], i) => i ? ctx.lineTo(tx(x), ty(y)) : ctx.moveTo(tx(x), ty(y)));
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+
+  // Outline
+  ctx.save();
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5; ctx.lineJoin = 'miter';
+  ctx.beginPath();
+  g.profile.forEach(([x, y], i) => i ? ctx.lineTo(tx(x), ty(y)) : ctx.moveTo(tx(x), ty(y)));
+  ctx.closePath(); ctx.stroke();
+  ctx.restore();
+
+  // Bend lines
+  ctx.save();
+  ctx.strokeStyle = '#d32f2f'; ctx.lineWidth = 1;
+  ctx.setLineDash([sc * 3, sc * 1.5]);
+  g.bends.forEach(([[x1,y1],[x2,y2]]) => {
+    ctx.beginPath(); ctx.moveTo(tx(x1), ty(y1)); ctx.lineTo(tx(x2), ty(y2)); ctx.stroke();
+  });
+  ctx.restore();
+
+  // Zone labels
+  ctx.setLineDash([]);
+  const fs = Math.max(9, Math.min(13, sc * 4));
+
+  function zoneLabel(xmm, ymm, lines, color = '#1a4e8a', rotate = false) {
+    ctx.save();
+    ctx.font = `bold ${fs}px system-ui`;
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const lh = fs * 1.5;
+    ctx.translate(tx(xmm), ty(ymm));
+    if (rotate) ctx.rotate(-Math.PI / 2);
+    lines.forEach((t, i) => ctx.fillText(t, 0, (i - (lines.length - 1) / 2) * lh));
+    ctx.restore();
+  }
+
+  if (g.iD * sc > fs * 2.5 && g.iW * sc > fs * 5)
+    zoneLabel(g.hL + g.iW/2, g.hF + g.iD/2,
+      [`${g.iW.toFixed(1)} × ${g.iD.toFixed(1)} mm`, `W=${M.W}  D=${M.D}`], '#333');
+
+  if (g.hF * sc > fs * 1.5)
+    zoneLabel(g.hL + g.iW/2, g.hF/2, [`H₁=${g.hF}`]);
+  if (g.hB * sc > fs * 1.5)
+    zoneLabel(g.hL + g.iW/2, g.hF + g.iD + g.hB/2, [`H₂=${g.hB}`]);
+  if (g.hR * sc > fs * 1.5 && g.iD * sc > fs * 2)
+    zoneLabel(g.hL + g.iW + g.hR/2, g.hF + g.iD/2, [`H₃=${g.hR}`], '#1a4e8a', true);
+  if (g.hL * sc > fs * 1.5 && g.iD * sc > fs * 2)
+    zoneLabel(g.hL/2, g.hF + g.iD/2, [`H₄=${g.hL}`], '#1a4e8a', true);
+
+  // Dimension lines
+  dimH(ctx, tx(0), tx(g.tW), ty(g.tH) + 38, `${g.tW.toFixed(1)} mm`);
+  dimV(ctx, tx(0) - 38, ty(0), ty(g.tH), `${g.tH.toFixed(1)} mm`);
+}
+
+function dimH(ctx, x1, x2, lineY, label) {
+  ctx.save();
+  ctx.strokeStyle = '#444'; ctx.fillStyle = '#444'; ctx.lineWidth = 0.8; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(x1, lineY - 8); ctx.lineTo(x1, lineY + 8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x2, lineY - 8); ctx.lineTo(x2, lineY + 8); ctx.stroke();
+  arrowLine(ctx, x1, lineY, x2, lineY);
+  ctx.font = '11px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(label, (x1 + x2) / 2, lineY + 5);
+  ctx.restore();
+}
+
+function dimV(ctx, lineX, y1, y2, label) {
+  ctx.save();
+  ctx.strokeStyle = '#444'; ctx.fillStyle = '#444'; ctx.lineWidth = 0.8; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(lineX - 8, y1); ctx.lineTo(lineX + 8, y1); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(lineX - 8, y2); ctx.lineTo(lineX + 8, y2); ctx.stroke();
+  arrowLine(ctx, lineX, y1, lineX, y2);
+  ctx.save();
+  ctx.translate(lineX - 16, (y1 + y2) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.font = '11px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(label, 0, 0);
+  ctx.restore();
+  ctx.restore();
+}
+
+function arrowLine(ctx, x1, y1, x2, y2) {
+  const a = Math.atan2(y2 - y1, x2 - x1), L = 8;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  [[x1, y1, a + Math.PI], [x2, y2, a]].forEach(([x, y, ang]) => {
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x - L * Math.cos(ang - 0.4), y - L * Math.sin(ang - 0.4));
+    ctx.lineTo(x - L * Math.cos(ang + 0.4), y - L * Math.sin(ang + 0.4));
+    ctx.closePath(); ctx.fill();
+  });
+}
+
+function gridStep(range) {
+  return [5, 10, 20, 25, 50, 100, 200, 500].find(s => range / s <= 15) || 100;
+}
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+function bind(slId, nId, vId, key, idx) {
+  const sl = document.getElementById(slId);
+  const ni = document.getElementById(nId);
+  const vl = document.getElementById(vId);
+  function set(v) {
+    v = parseFloat(v); if (isNaN(v)) return;
+    sl.value = v; ni.value = v;
+    vl.textContent = v % 1 === 0 ? v : v.toFixed(1);
+    if (idx === undefined) M[key] = v; else M[key][idx] = v;
+    draw();
+  }
+  sl.addEventListener('input',  e => set(e.target.value));
+  ni.addEventListener('input',  e => set(e.target.value));
+  ni.addEventListener('change', e => set(e.target.value));
+}
+
+bind('s-W',  'n-W',  'v-W',  'W');
+bind('s-D',  'n-D',  'v-D',  'D');
+bind('s-H0', 'n-H0', 'v-H0', 'H', 0);
+bind('s-H1', 'n-H1', 'v-H1', 'H', 1);
+bind('s-H2', 'n-H2', 'v-H2', 'H', 2);
+bind('s-H3', 'n-H3', 'v-H3', 'H', 3);
+bind('s-S',  'n-S',  'v-S',  'BA');
+bind('s-T',  'n-T',  'v-T',  'T');
+
+window.addEventListener('resize', draw);
+
+// ── DXF Export ────────────────────────────────────────────────────────────────
+// CUT layer: outer profile (continuous)
+// BEND layer: fold lines (dashed)
+// Y is flipped (DXF standard: positive Y = up)
+function exportDXF() {
+  const g = geo(); if (!g) return;
+  let d = '0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n0\nENDSEC\n';
+  d += '0\nSECTION\n2\nTABLES\n0\nTABLE\n2\nLAYER\n70\n2\n';
+  d += '0\nLAYER\n2\nCUT\n70\n0\n62\n7\n6\nCONTINUOUS\n';
+  d += '0\nLAYER\n2\nBEND\n70\n0\n62\n1\n6\nDASHED\n';
+  d += '0\nENDTABLE\n0\nENDSEC\n';
+  d += '0\nSECTION\n2\nENTITIES\n';
+
+  const n = g.profile.length;
+  for (let i = 0; i < n; i++) {
+    const [x1, y1] = g.profile[i];
+    const [x2, y2] = g.profile[(i + 1) % n];
+    d += `0\nLINE\n8\nCUT\n10\n${x1.toFixed(4)}\n20\n${(-y1).toFixed(4)}\n30\n0.0\n`;
+    d += `11\n${x2.toFixed(4)}\n21\n${(-y2).toFixed(4)}\n31\n0.0\n`;
+  }
+
+  g.bends.forEach(([[x1, y1], [x2, y2]]) => {
+    d += `0\nLINE\n8\nBEND\n10\n${x1.toFixed(4)}\n20\n${(-y1).toFixed(4)}\n30\n0.0\n`;
+    d += `11\n${x2.toFixed(4)}\n21\n${(-y2).toFixed(4)}\n31\n0.0\n`;
+  });
+
+  d += '0\nENDSEC\n0\nEOF\n';
+  download(d, 'flat_pattern.dxf', 'application/dxf');
+}
+
+// ── SVG Export ────────────────────────────────────────────────────────────────
+function exportSVG() {
+  const g = geo(); if (!g) return;
+  const pad = 8, w = g.tW + pad * 2, h = g.tH + pad * 2;
+  const pts = g.profile.map(([x, y]) => `${x + pad},${y + pad}`).join(' ');
+  let s = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${w}mm" height="${h}mm" viewBox="0 0 ${w} ${h}">
+  <polygon points="${pts}" fill="#ddeeff" stroke="#111" stroke-width="0.4"/>
+`;
+  g.bends.forEach(([[x1, y1], [x2, y2]]) => {
+    s += `  <line x1="${x1+pad}" y1="${y1+pad}" x2="${x2+pad}" y2="${y2+pad}" stroke="#d32f2f" stroke-width="0.25" stroke-dasharray="1.5,0.75"/>\n`;
+  });
+  s += '</svg>';
+  download(s, 'flat_pattern.svg', 'image/svg+xml');
+}
+
+function download(text, name, mime) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: mime }));
+  a.download = name; a.click(); URL.revokeObjectURL(a.href);
+}
+
+draw();
+</script>
+</body>
+</html>
