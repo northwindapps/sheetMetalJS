@@ -126,22 +126,33 @@ function geo() {
   const fhR = hR - BA / 2;   // flat right flange
   const fhL = hL - BA / 2;   // flat left flange
   if (iW <= 0 || iD <= 0 || fhF <= 0 || fhB <= 0 || fhR <= 0 || fhL <= 0) return null;
+  const ear  = T;    // ear width on H1/H2 sides = material thickness (fills corner gap)
+  const trim = 1;    // corner relief on H3/H4 top+bottom (mm, clears bending tool)
   const tW = fhL + iW + fhR;
   const tH = fhF + iD + fhB;
-  // Cross-shaped profile, clockwise from top-left of front flange
+  // 20-point profile: H1/H2 get T-wide ears; H3/H4 trimmed 1 mm at each end
+  // Clockwise from top-left of H1 left ear
   const profile = [
-    [fhL,             0              ],
-    [fhL + iW,        0              ],
-    [fhL + iW,        fhF            ],
-    [fhL + iW + fhR,  fhF            ],
-    [fhL + iW + fhR,  fhF + iD      ],
-    [fhL + iW,        fhF + iD      ],
-    [fhL + iW,        fhF + iD + fhB],
-    [fhL,             fhF + iD + fhB],
-    [fhL,             fhF + iD      ],
-    [0,               fhF + iD      ],
-    [0,               fhF            ],
-    [fhL,             fhF            ],
+    [fhL - ear,          0                  ],  // H1 left ear — top-left
+    [fhL + iW + ear,     0                  ],  // H1 right ear — top-right
+    [fhL + iW + ear,     fhF                ],  // H1 right ear — bottom-right
+    [fhL + iW,           fhF                ],  // step in to fold line (relief gap opens)
+    [fhL + iW,           fhF + trim         ],  // H3 top-left (after trim)
+    [fhL + iW + fhR,     fhF + trim         ],  // H3 top-right
+    [fhL + iW + fhR,     fhF + iD - trim    ],  // H3 bottom-right
+    [fhL + iW,           fhF + iD - trim    ],  // H3 bottom-left (before trim)
+    [fhL + iW,           fhF + iD           ],  // step out to fold line
+    [fhL + iW + ear,     fhF + iD           ],  // H2 right ear — top-right
+    [fhL + iW + ear,     fhF + iD + fhB     ],  // H2 right ear — bottom-right
+    [fhL - ear,          fhF + iD + fhB     ],  // H2 left ear — bottom-left
+    [fhL - ear,          fhF + iD           ],  // H2 left ear — top-left
+    [fhL,                fhF + iD           ],  // step in to fold line
+    [fhL,                fhF + iD - trim    ],  // H4 bottom-right (before trim)
+    [0,                  fhF + iD - trim    ],  // H4 bottom-left
+    [0,                  fhF + trim         ],  // H4 top-left
+    [fhL,                fhF + trim         ],  // H4 top-right (after trim)
+    [fhL,                fhF                ],  // step out to fold line
+    [fhL - ear,          fhF                ],  // H1 left ear — bottom-left
   ];
   const bends = [
     [[fhL, fhF],       [fhL + iW, fhF]       ],  // front fold line
@@ -149,7 +160,7 @@ function geo() {
     [[fhL, fhF],       [fhL, fhF + iD]        ],  // left fold line
     [[fhL + iW, fhF],  [fhL + iW, fhF + iD]  ],  // right fold line
   ];
-  return { iW, iD, tW, tH, hF: fhF, hB: fhB, hR: fhR, hL: fhL, profile, bends };
+  return { iW, iD, tW, tH, hF: fhF, hB: fhB, hR: fhR, hL: fhL, ear, trim, profile, bends };
 }
 
 // ── Canvas ────────────────────────────────────────────────────────────────────
