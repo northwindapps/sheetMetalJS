@@ -89,6 +89,8 @@ const fhF = hF - BA / 2;   // flat front flange  (1 bend × BA/2)
 const fhB = hB - BA / 2;   // flat back flange
 const fhR = hR - BA / 2;   // flat right flange
 const fhL = hL - BA / 2;   // flat left flange
+const ear  = T;             // ear width = material thickness
+const trim = 1;             // corner relief on H3/H4 front+back (mm)
 const oW = W;   // finished outer width
 const oD = D;   // finished outer depth
 
@@ -207,17 +209,21 @@ function addPart(geo, x, y, z) {
 // Bottom plate — flat blank bottom section
 addPart(new THREE.BoxGeometry(iW, T, iD), 0, T / 2, 0);
 
-// Front wall (H₁)
+// Front wall (H₁) + ears
 addPart(new THREE.BoxGeometry(iW, fhF, T), 0, T + fhF / 2, -(iD / 2 + T / 2));
+addPart(new THREE.BoxGeometry(ear, fhF, T),  iW / 2 + ear / 2, T + fhF / 2, -(iD / 2 + T / 2));
+addPart(new THREE.BoxGeometry(ear, fhF, T), -iW / 2 - ear / 2, T + fhF / 2, -(iD / 2 + T / 2));
 
-// Back wall (H₂)
+// Back wall (H₂) + ears
 addPart(new THREE.BoxGeometry(iW, fhB, T), 0, T + fhB / 2,  iD / 2 + T / 2);
+addPart(new THREE.BoxGeometry(ear, fhB, T),  iW / 2 + ear / 2, T + fhB / 2,  iD / 2 + T / 2);
+addPart(new THREE.BoxGeometry(ear, fhB, T), -iW / 2 - ear / 2, T + fhB / 2,  iD / 2 + T / 2);
 
-// Right wall (H₃) — depth iD, notched corners stay open
-addPart(new THREE.BoxGeometry(T, fhR, iD), iW / 2 + T / 2, T + fhR / 2, 0);
+// Right wall (H₃) — trimmed 1 mm at front and back for bending clearance
+addPart(new THREE.BoxGeometry(T, fhR, iD - 2 * trim), iW / 2 + T / 2, T + fhR / 2, 0);
 
-// Left wall (H₄)
-addPart(new THREE.BoxGeometry(T, fhL, iD), -(iW / 2 + T / 2), T + fhL / 2, 0);
+// Left wall (H₄) — trimmed 1 mm at front and back
+addPart(new THREE.BoxGeometry(T, fhL, iD - 2 * trim), -(iW / 2 + T / 2), T + fhL / 2, 0);
 
 // ── Ground ────────────────────────────────────────────────────────────────────
 const gSize = Math.max(oW, oD) * 5;
