@@ -165,20 +165,19 @@ struct FlatBlankView: View {
             Group {
                 let flangeBlue = Color(red: 0.1, green: 0.25, blue: 0.8)
                 let flangeBlueDim = flangeBlue.opacity(0.65)
-                let h1w = (innerW + 2 * earW) / sc * 1000   // H1/H2 blank width mm
                 let h3l = (innerD - 2 * trimPx) / sc * 1000 // H3/H4 blank length mm
                 // H1 — front
                 Text(String(format: "H₁ = %d mm", Int(design.heights[0] * 1000)))
                     .font(.system(size: 9, weight: .semibold)).foregroundColor(flangeBlue)
                     .position(x: cx, y: cy - innerD/2 - fh[0]/2 - 6)
-                Text(String(format: "w: %.1f mm", h1w))
+                Text(String(format: "w: %d mm", Int(design.width * 1000)))
                     .font(.system(size: 8)).foregroundColor(flangeBlueDim)
                     .position(x: cx, y: cy - innerD/2 - fh[0]/2 + 6)
                 // H2 — back
                 Text(String(format: "H₂ = %d mm", Int(design.heights[1] * 1000)))
                     .font(.system(size: 9, weight: .semibold)).foregroundColor(flangeBlue)
                     .position(x: cx, y: cy + innerD/2 + fh[1]/2 - 6)
-                Text(String(format: "w: %.1f mm", h1w))
+                Text(String(format: "w: %d mm", Int(design.width * 1000)))
                     .font(.system(size: 8)).foregroundColor(flangeBlueDim)
                     .position(x: cx, y: cy + innerD/2 + fh[1]/2 + 6)
                 // H3 — right (rotated): height at centre, length near outer edge
