@@ -3,23 +3,20 @@ import SwiftUI
 import SceneKit
 import ARKit
 
-// 1. 全体で共有するデータクラス
 class MetalDesign: ObservableObject {
     @Published var width: Float = 0.1
     @Published var depth: Float = 0.1
     @Published var bendProgress: Float = 0.0
     @Published var heights: [Float] = [0.04, 0.04, 0.04, 0.04]
     @Published var withEars: Bool = true
-    // 曲げ条件（BA = π/2 × (r + K·t)）
-    @Published var thickness: Float = 0.0015    // 板厚 t (m) = 1.5mm
-    @Published var innerRadius: Float = 0.0015  // 内側半径 r (m) = 1.5mm
-    @Published var kFactor: Float = 0.33        // Kファクター (空曲げ: 0.33, 底付き: 0.38, コイニング: 0.42)
-    // 曲げ代（自動計算・読み取り専用）
+    @Published var thickness: Float = 0.0015    // t (m)
+    @Published var innerRadius: Float = 0.0015  // r (m)
+    @Published var kFactor: Float = 0.33
+    // BA = π/2 × (r + K·t)
     var bendAllowance: Float { (.pi / 2) * (innerRadius + kFactor * thickness) }
-    // フラットブランク寸法
-    var flatW: Float { width - bendAllowance }          // 底面幅 (2曲げ × BA/2 = BA)
-    var flatD: Float { depth - bendAllowance }          // 底面奥行き
-    func flatH(_ i: Int) -> Float { heights[i] - bendAllowance / 2 }  // フランジ高さ (1曲げ × BA/2)
+    var flatW: Float { width - bendAllowance }
+    var flatD: Float { depth - bendAllowance }
+    func flatH(_ i: Int) -> Float { heights[i] - bendAllowance / 2 }
 }
 
 
@@ -30,13 +27,13 @@ struct ContentView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
 
-            // --- タブ 1: 3D AR ---
+            // --- Tab 1: 3D AR ---
             ZStack(alignment: .bottom) {
                 ARSCNViewContainer(design: design)
                     .edgesIgnoringSafeArea(.all)
 
                 VStack(spacing: 10) {
-                    Text("3D AR シミュレーター")
+                    Text("3D AR Simulator")
                         .padding(10)
                         .background(.ultraThinMaterial)
                         .cornerRadius(10)
@@ -44,7 +41,7 @@ struct ContentView: View {
                     Slider(value: $design.bendProgress, in: 0...1)
                         .padding(.horizontal)
 
-                    Text("進捗に合わせて左右が『外側に』展開します")
+                    Text("Drag to unfold the flat blank")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
@@ -56,7 +53,7 @@ struct ContentView: View {
             }
             .tag(0)
 
-            // --- タブ 2: 2D Design ---
+            // --- Tab 2: 2D Design ---
             DesignMapView(design: design)
                 .tabItem {
                     Image(systemName: "square.dashed")
@@ -161,26 +158,44 @@ struct FlatBlankView: View {
             }
             .stroke(Color.gray.opacity(0.65), lineWidth: 0.8)
 
-            // ── 4. フランジ寸法ラベル
+            // ── 4. Flange dimension labels (height + width/length)
             Group {
+                let flangeBlue = Color(red: 0.1, green: 0.25, blue: 0.8)
+                let flangeBlueDim = flangeBlue.opacity(0.65)
+                let h1w = (innerW + 2 * earW) / sc * 1000   // H1/H2 blank width mm
+                let h3l = (innerD - 2 * trimPx) / sc * 1000 // H3/H4 blank length mm
+                // H1 — front
                 Text(String(format: "H₁ = %d mm", Int(design.heights[0] * 1000)))
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundColor(Color(red: 0.1, green: 0.25, blue: 0.8))
-                    .position(x: cx, y: cy - innerD/2 - fh[0]/2)
+                    .font(.system(size: 9, weight: .semibold)).foregroundColor(flangeBlue)
+                    .position(x: cx, y: cy - innerD/2 - fh[0]/2 - 6)
+                Text(String(format: "w: %.1f mm", h1w))
+                    .font(.system(size: 8)).foregroundColor(flangeBlueDim)
+                    .position(x: cx, y: cy - innerD/2 - fh[0]/2 + 6)
+                // H2 — back
                 Text(String(format: "H₂ = %d mm", Int(design.heights[1] * 1000)))
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundColor(Color(red: 0.1, green: 0.25, blue: 0.8))
-                    .position(x: cx, y: cy + innerD/2 + fh[1]/2)
+                    .font(.system(size: 9, weight: .semibold)).foregroundColor(flangeBlue)
+                    .position(x: cx, y: cy + innerD/2 + fh[1]/2 - 6)
+                Text(String(format: "w: %.1f mm", h1w))
+                    .font(.system(size: 8)).foregroundColor(flangeBlueDim)
+                    .position(x: cx, y: cy + innerD/2 + fh[1]/2 + 6)
+                // H3 — right (rotated)
                 Text(String(format: "H₃ = %d mm", Int(design.heights[2] * 1000)))
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundColor(Color(red: 0.1, green: 0.25, blue: 0.8))
+                    .font(.system(size: 9, weight: .semibold)).foregroundColor(flangeBlue)
                     .rotationEffect(.degrees(-90))
-                    .position(x: cx + innerW/2 + fh[2]/2, y: cy)
+                    .position(x: cx + innerW/2 + fh[2]/2, y: cy - 7)
+                Text(String(format: "l: %.1f mm", h3l))
+                    .font(.system(size: 8)).foregroundColor(flangeBlueDim)
+                    .rotationEffect(.degrees(-90))
+                    .position(x: cx + innerW/2 + fh[2]/2, y: cy + 7)
+                // H4 — left (rotated)
                 Text(String(format: "H₄ = %d mm", Int(design.heights[3] * 1000)))
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundColor(Color(red: 0.1, green: 0.25, blue: 0.8))
+                    .font(.system(size: 9, weight: .semibold)).foregroundColor(flangeBlue)
                     .rotationEffect(.degrees(90))
-                    .position(x: cx - innerW/2 - fh[3]/2, y: cy)
+                    .position(x: cx - innerW/2 - fh[3]/2, y: cy - 7)
+                Text(String(format: "l: %.1f mm", h3l))
+                    .font(.system(size: 8)).foregroundColor(flangeBlueDim)
+                    .rotationEffect(.degrees(90))
+                    .position(x: cx - innerW/2 - fh[3]/2, y: cy + 7)
             }
 
             // ── 5. 底面・総寸法ラベル
@@ -233,7 +248,7 @@ struct DesignMapView: View {
                     ))
                     ScrollView {
                         VStack(spacing: 12) {
-                            Text("板金バラ図")
+                            Text("Sheet Metal Blank")
                                 .font(.subheadline).fontWeight(.semibold)
                                 .padding(.top, 8)
                             Divider()
@@ -248,7 +263,7 @@ struct DesignMapView: View {
                 // ── Portrait: drawing then controls, scrollable
                 ScrollView {
                     VStack(spacing: 20) {
-                        Text("2D 展開図（板金バラ図）")
+                        Text("2D Flat Blank Layout")
                             .font(.headline)
                             .padding(.top)
                         FlatBlankView(design: design, size: CGSize(
@@ -271,44 +286,44 @@ struct DesignMapView: View {
     private func controlsContent() -> some View {
         VStack(spacing: 12) {
             Group {
-                SliderGroup(label: "幅 (W)", value: $design.width, range: 0.05...0.15)
-                SliderGroup(label: "奥 (D)", value: $design.depth, range: 0.05...0.15)
+                SliderGroup(label: "Width (W)", value: $design.width, range: 0.05...0.15)
+                SliderGroup(label: "Depth (D)", value: $design.depth, range: 0.05...0.15)
             }
             Divider()
             Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 10) {
                 GridRow {
-                    SliderGroup(label: "前 H₁", value: $design.heights[0], range: 0.01...0.1)
-                    SliderGroup(label: "後 H₂", value: $design.heights[1], range: 0.01...0.1)
+                    SliderGroup(label: "Front H₁", value: $design.heights[0], range: 0.01...0.1)
+                    SliderGroup(label: "Back H₂", value: $design.heights[1], range: 0.01...0.1)
                 }
                 GridRow {
-                    SliderGroup(label: "右 H₃", value: $design.heights[2], range: 0.01...0.1)
-                    SliderGroup(label: "左 H₄", value: $design.heights[3], range: 0.01...0.1)
+                    SliderGroup(label: "Right H₃", value: $design.heights[2], range: 0.01...0.1)
+                    SliderGroup(label: "Left H₄", value: $design.heights[3], range: 0.01...0.1)
                 }
             }
             Divider()
-            SliderGroup(label: "板厚 (t)", value: $design.thickness, range: 0.0005...0.004)
-            SliderGroup(label: "内半径 (r)", value: $design.innerRadius, range: 0.0005...0.006)
+            SliderGroup(label: "Thickness (t)", value: $design.thickness, range: 0.0005...0.004)
+            SliderGroup(label: "Inner Radius (r)", value: $design.innerRadius, range: 0.0005...0.006)
             VStack(alignment: .leading) {
                 HStack {
-                    Text("Kファクター")
+                    Text("K-Factor")
                     Spacer()
                     Text(String(format: "%.2f", design.kFactor)).bold()
                 }
                 Slider(value: $design.kFactor, in: 0.1...0.5)
-                Text("空曲げ 0.33 · 底付き 0.38 · コイニング 0.42")
+                Text("Air bend 0.33 · Bottom 0.38 · Coining 0.42")
                     .font(.caption2).foregroundColor(.secondary)
             }
             HStack {
-                Text("曲げ代 BA")
+                Text("Bend Allow. BA")
                 Spacer()
                 Text(String(format: "%.2f mm", design.bendAllowance * 1000))
                     .bold().foregroundColor(.orange)
             }
-            Text("= π/2 × (r + K · t)  ※自動計算")
+            Text("= π/2 × (r + K · t)  auto-calculated")
                 .font(.caption2).foregroundColor(.secondary)
             Divider()
             Toggle(isOn: $design.withEars) {
-                Text("耳付き H₁/H₂ · H₃/H₄ トリム")
+                Text("Ears H₁/H₂ · H₃/H₄ trim")
             }
             .tint(.blue)
         }
@@ -394,11 +409,11 @@ struct ARSCNViewContainer: UIViewRepresentable {
 
         let ba = design.bendAllowance
         let t = design.thickness
-        let ear = t / 2      // 耳幅 = 板厚/2（H3/H4外面に面一）
-        let trim: Float = 0.001  // H3/H4 両端トリム = 1mm
+        let ear = t / 2      // ear width = t/2 (flush with H3/H4 outer face)
+        let trim: Float = 0.001  // H3/H4 corner relief = 1 mm
         let withEars = design.withEars
-        let iW = design.width - ba   // フラットブランク幅 (2曲げ × BA/2 = BA)
-        let iD = design.depth - ba   // フラットブランク奥行き
+        let iW = design.width - ba   // flat blank width
+        let iD = design.depth - ba   // flat blank depth
 
         let bottom = SCNNode(geometry: SCNBox(width: CGFloat(iW), height: CGFloat(t), length: CGFloat(iD), chamferRadius: 0))
         bottom.name = "bottom"
@@ -407,20 +422,19 @@ struct ARSCNViewContainer: UIViewRepresentable {
 
         for i in 0..<4 {
             let h = design.heights[i]
-            let fh = h - ba / 2   // フランジ高さ (1曲げ × BA/2)
-            // H3/H4: 耳モードでは両端 trim 分短縮
+            let fh = h - ba / 2   // flat flange height
+            // H3/H4: trim both ends when ears are on
             let sw: Float = (i < 2) ? iW : (withEars ? iD - 2 * trim : iD)
 
             let pivot = SCNNode()
             pivot.name = "pivot_\(i)"
 
-            // メインパネル
             let side = SCNNode(geometry: SCNBox(width: CGFloat(sw), height: CGFloat(fh), length: CGFloat(t), chamferRadius: 0))
             side.geometry?.materials = [mat]
             side.position = SCNVector3(0, fh / 2, 0)
             pivot.addChildNode(side)
 
-            // H1/H2 の耳（両側 ear 幅）
+            // H1/H2 ear tabs
             if withEars && i < 2 {
                 for sign: Float in [-1, 1] {
                     let earNode = SCNNode(geometry: SCNBox(width: CGFloat(ear), height: CGFloat(fh), length: CGFloat(t), chamferRadius: 0))
