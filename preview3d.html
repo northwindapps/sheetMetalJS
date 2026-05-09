@@ -43,6 +43,14 @@ canvas { display: block; }
   padding: 7px 14px; cursor: pointer; font-size: 12px;
 }
 #btn-rotate:hover { background: #4fc3f7; color: #0f3460; }
+
+#btn-ears {
+  position: fixed; bottom: 16px; right: 170px;
+  background: rgba(15,52,96,.8); color: #90caf9;
+  border: 1px solid #4fc3f7; border-radius: 6px;
+  padding: 7px 14px; cursor: pointer; font-size: 12px;
+}
+#btn-ears:hover { background: #4fc3f7; color: #0f3460; }
 </style>
 </head>
 <body>
@@ -56,6 +64,7 @@ canvas { display: block; }
 
 <button id="btn-close" onclick="window.close()">✕ Close</button>
 <button id="btn-rotate">⟳ Auto-rotate: ON</button>
+<button id="btn-ears">Ears: ON</button>
 
 <script type="importmap">
 {
@@ -145,6 +154,14 @@ controls.minDistance = Math.max(oW, oD) * 0.3;
 controls.maxDistance = Math.max(oW, oD) * 10;
 controls.update();
 
+// Toggle ears button
+let showEars = true;
+document.getElementById('btn-ears').addEventListener('click', () => {
+  showEars = !showEars;
+  buildBox(showEars);
+  document.getElementById('btn-ears').textContent = `Ears: ${showEars ? 'ON' : 'OFF'}`;
+});
+
 // Toggle auto-rotate button
 let autoRotate = true;
 document.getElementById('btn-rotate').addEventListener('click', () => {
@@ -187,43 +204,47 @@ const metalMat = new THREE.MeshStandardMaterial({
 });
 const edgeMat = new THREE.LineBasicMaterial({ color: 0x445566, opacity: 0.5, transparent: true });
 
+const boxGroup = new THREE.Group();
+scene.add(boxGroup);
+
 function addPart(geo, x, y, z) {
   const mesh = new THREE.Mesh(geo, metalMat);
   mesh.position.set(x, y, z);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
-  scene.add(mesh);
-
-  // Edge lines for crisp silhouette
+  boxGroup.add(mesh);
   const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 12), edgeMat);
   edges.position.set(x, y, z);
-  scene.add(edges);
+  boxGroup.add(edges);
 }
 
-// ── Box geometry ──────────────────────────────────────────────────────────────
-// 3D uses flat blank dimensions (iW × iD bottom, flat flange lengths hX).
-// BA = t/4 already compensates for the t/4-per-leg bend expansion, so the
-// finished box recovers the original W/D targets (shown in the info panel above).
-// Corner notches are open (matching flat pattern corner cutouts).
+function buildBox(ears) {
+  while (boxGroup.children.length) {
+    const obj = boxGroup.children[0];
+    obj.geometry?.dispose();
+    boxGroup.remove(obj);
+  }
+  const sD = ears ? iD - 2 * trim : iD;   // H3/H4 depth (trimmed or full)
 
-// Bottom plate — flat blank bottom section
-addPart(new THREE.BoxGeometry(iW, T, iD), 0, T / 2, 0);
+  addPart(new THREE.BoxGeometry(iW, T, iD), 0, T / 2, 0);
 
-// Front wall (H₁) + ears
-addPart(new THREE.BoxGeometry(iW, fhF, T), 0, T + fhF / 2, -(iD / 2 + T / 2));
-addPart(new THREE.BoxGeometry(ear, fhF, T),  iW / 2 + ear / 2, T + fhF / 2, -(iD / 2 + T / 2));
-addPart(new THREE.BoxGeometry(ear, fhF, T), -iW / 2 - ear / 2, T + fhF / 2, -(iD / 2 + T / 2));
+  addPart(new THREE.BoxGeometry(iW, fhF, T), 0, T + fhF / 2, -(iD / 2 + T / 2));
+  if (ears) {
+    addPart(new THREE.BoxGeometry(ear, fhF, T),  iW / 2 + ear / 2, T + fhF / 2, -(iD / 2 + T / 2));
+    addPart(new THREE.BoxGeometry(ear, fhF, T), -iW / 2 - ear / 2, T + fhF / 2, -(iD / 2 + T / 2));
+  }
 
-// Back wall (H₂) + ears
-addPart(new THREE.BoxGeometry(iW, fhB, T), 0, T + fhB / 2,  iD / 2 + T / 2);
-addPart(new THREE.BoxGeometry(ear, fhB, T),  iW / 2 + ear / 2, T + fhB / 2,  iD / 2 + T / 2);
-addPart(new THREE.BoxGeometry(ear, fhB, T), -iW / 2 - ear / 2, T + fhB / 2,  iD / 2 + T / 2);
+  addPart(new THREE.BoxGeometry(iW, fhB, T), 0, T + fhB / 2,  iD / 2 + T / 2);
+  if (ears) {
+    addPart(new THREE.BoxGeometry(ear, fhB, T),  iW / 2 + ear / 2, T + fhB / 2,  iD / 2 + T / 2);
+    addPart(new THREE.BoxGeometry(ear, fhB, T), -iW / 2 - ear / 2, T + fhB / 2,  iD / 2 + T / 2);
+  }
 
-// Right wall (H₃) — trimmed 1 mm at front and back for bending clearance
-addPart(new THREE.BoxGeometry(T, fhR, iD - 2 * trim), iW / 2 + T / 2, T + fhR / 2, 0);
+  addPart(new THREE.BoxGeometry(T, fhR, sD), iW / 2 + T / 2, T + fhR / 2, 0);
+  addPart(new THREE.BoxGeometry(T, fhL, sD), -(iW / 2 + T / 2), T + fhL / 2, 0);
+}
 
-// Left wall (H₄) — trimmed 1 mm at front and back
-addPart(new THREE.BoxGeometry(T, fhL, iD - 2 * trim), -(iW / 2 + T / 2), T + fhL / 2, 0);
+buildBox(true);
 
 // ── Ground ────────────────────────────────────────────────────────────────────
 const gSize = Math.max(oW, oD) * 5;
