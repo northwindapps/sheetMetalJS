@@ -394,7 +394,7 @@ struct ARSCNViewContainer: UIViewRepresentable {
 
         let ba = design.bendAllowance
         let t = design.thickness
-        let ear = t          // 耳幅 = 板厚
+        let ear = t / 2      // 耳幅 = 板厚/2（H3/H4外面に面一）
         let trim: Float = 0.001  // H3/H4 両端トリム = 1mm
         let withEars = design.withEars
         let iW = design.width - ba   // フラットブランク幅 (2曲げ × BA/2 = BA)
