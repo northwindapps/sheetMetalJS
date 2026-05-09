@@ -96,7 +96,10 @@ struct FlatBlankView: View {
             let innerW = w - ba
             let innerD = d - ba
             let fh     = h.map { $0 - ba / 2 }
-            let earW:  CGFloat = design.withEars ? CGFloat(design.thickness) * sc : 0
+            // ear capped at BA/2 so H1/H2 blank width never exceeds W
+            let earW:  CGFloat = design.withEars
+                ? min(CGFloat(design.thickness), CGFloat(design.bendAllowance) / 2) * sc
+                : 0
             let trimPx: CGFloat = design.withEars ? CGFloat(0.001) * sc : 0
             let flatL = cx - innerW/2 - fh[3]
             let flatR = cx + innerW/2 + fh[2]
@@ -178,24 +181,24 @@ struct FlatBlankView: View {
                 Text(String(format: "w: %.1f mm", h1w))
                     .font(.system(size: 8)).foregroundColor(flangeBlueDim)
                     .position(x: cx, y: cy + innerD/2 + fh[1]/2 + 6)
-                // H3 — right (rotated)
+                // H3 — right (rotated): height at centre, length near outer edge
                 Text(String(format: "H₃ = %d mm", Int(design.heights[2] * 1000)))
                     .font(.system(size: 9, weight: .semibold)).foregroundColor(flangeBlue)
                     .rotationEffect(.degrees(-90))
-                    .position(x: cx + innerW/2 + fh[2]/2, y: cy - 7)
+                    .position(x: cx + innerW/2 + fh[2] / 2, y: cy)
                 Text(String(format: "l: %.1f mm", h3l))
                     .font(.system(size: 8)).foregroundColor(flangeBlueDim)
                     .rotationEffect(.degrees(-90))
-                    .position(x: cx + innerW/2 + fh[2]/2, y: cy + 7)
-                // H4 — left (rotated)
+                    .position(x: cx + innerW/2 + fh[2] * 0.82, y: cy)
+                // H4 — left (rotated): height at centre, length near outer edge
                 Text(String(format: "H₄ = %d mm", Int(design.heights[3] * 1000)))
                     .font(.system(size: 9, weight: .semibold)).foregroundColor(flangeBlue)
                     .rotationEffect(.degrees(90))
-                    .position(x: cx - innerW/2 - fh[3]/2, y: cy - 7)
+                    .position(x: cx - innerW/2 - fh[3] / 2, y: cy)
                 Text(String(format: "l: %.1f mm", h3l))
                     .font(.system(size: 8)).foregroundColor(flangeBlueDim)
                     .rotationEffect(.degrees(90))
-                    .position(x: cx - innerW/2 - fh[3]/2, y: cy + 7)
+                    .position(x: cx - innerW/2 - fh[3] * 0.82, y: cy)
             }
 
             // ── 5. 底面・総寸法ラベル
