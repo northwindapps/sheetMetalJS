@@ -74,221 +74,243 @@ struct ContentView: View {
     }
 }
 
-// 3. 2D側のスライダー連動
+// 3. 2D展開図描画（サイズ適応）
+struct FlatBlankView: View {
+    @ObservedObject var design: MetalDesign
+    let size: CGSize
+
+    private var scale: CGFloat {
+        let margin: CGFloat = 60
+        let fw = CGFloat(design.flatW + design.flatH(2) + design.flatH(3))
+        let fd = CGFloat(design.flatD + design.flatH(0) + design.flatH(1))
+        guard fw > 0, fd > 0 else { return 1800 }
+        return min((size.width - 2 * margin) / fw, (size.height - 2 * margin) / fd)
+    }
+
+    var body: some View {
+        ZStack {
+            let sc = scale
+            let cx = size.width / 2
+            let cy = size.height / 2
+            let w  = CGFloat(design.width)  * sc
+            let d  = CGFloat(design.depth)  * sc
+            let h  = design.heights.map { CGFloat($0) * sc }
+            let ba = CGFloat(design.bendAllowance) * sc
+            let innerW = w - ba
+            let innerD = d - ba
+            let fh     = h.map { $0 - ba / 2 }
+            let earW:  CGFloat = design.withEars ? CGFloat(design.thickness) * sc : 0
+            let trimPx: CGFloat = design.withEars ? CGFloat(0.001) * sc : 0
+            let flatL = cx - innerW/2 - fh[3]
+            let flatR = cx + innerW/2 + fh[2]
+            let flatT = cy - innerD/2 - fh[0]
+            let flatB = cy + innerD/2 + fh[1]
+            let totW = (design.flatW + design.flatH(2) + design.flatH(3)) * 1000
+            let totD = (design.flatD + design.flatH(0) + design.flatH(1)) * 1000
+
+            // ── 1. 底面折り曲げ線（赤破線）
+            Rectangle()
+                .stroke(Color.red, style: StrokeStyle(lineWidth: 1, dash: [4]))
+                .frame(width: innerW, height: innerD)
+                .position(x: cx, y: cy)
+
+            // ── 2. 外形線
+            Path { path in
+                path.move(to: CGPoint(x: cx - innerW/2 - earW, y: cy - innerD/2))
+                path.addLine(to: CGPoint(x: cx - innerW/2 - earW, y: cy - innerD/2 - fh[0]))
+                path.addLine(to: CGPoint(x: cx + innerW/2 + earW, y: cy - innerD/2 - fh[0]))
+                path.addLine(to: CGPoint(x: cx + innerW/2 + earW, y: cy - innerD/2))
+                path.move(to: CGPoint(x: cx - innerW/2 - earW, y: cy + innerD/2))
+                path.addLine(to: CGPoint(x: cx - innerW/2 - earW, y: cy + innerD/2 + fh[1]))
+                path.addLine(to: CGPoint(x: cx + innerW/2 + earW, y: cy + innerD/2 + fh[1]))
+                path.addLine(to: CGPoint(x: cx + innerW/2 + earW, y: cy + innerD/2))
+                path.move(to: CGPoint(x: cx + innerW/2, y: cy - innerD/2 + trimPx))
+                path.addLine(to: CGPoint(x: cx + innerW/2 + fh[2], y: cy - innerD/2 + trimPx))
+                path.addLine(to: CGPoint(x: cx + innerW/2 + fh[2], y: cy + innerD/2 - trimPx))
+                path.addLine(to: CGPoint(x: cx + innerW/2, y: cy + innerD/2 - trimPx))
+                path.move(to: CGPoint(x: cx - innerW/2, y: cy - innerD/2 + trimPx))
+                path.addLine(to: CGPoint(x: cx - innerW/2 - fh[3], y: cy - innerD/2 + trimPx))
+                path.addLine(to: CGPoint(x: cx - innerW/2 - fh[3], y: cy + innerD/2 - trimPx))
+                path.addLine(to: CGPoint(x: cx - innerW/2, y: cy + innerD/2 - trimPx))
+            }
+            .stroke(Color.primary, lineWidth: 2)
+
+            // ── 3. 寸法線
+            Path { path in
+                let tk: CGFloat = 4
+                let twY = flatB + 20
+                path.move(to: CGPoint(x: flatL, y: twY))
+                path.addLine(to: CGPoint(x: flatR, y: twY))
+                path.move(to: CGPoint(x: flatL, y: twY - tk)); path.addLine(to: CGPoint(x: flatL, y: twY + tk))
+                path.move(to: CGPoint(x: flatR, y: twY - tk)); path.addLine(to: CGPoint(x: flatR, y: twY + tk))
+                let tdX = flatL - 20
+                path.move(to: CGPoint(x: tdX, y: flatT))
+                path.addLine(to: CGPoint(x: tdX, y: flatB))
+                path.move(to: CGPoint(x: tdX - tk, y: flatT)); path.addLine(to: CGPoint(x: tdX + tk, y: flatT))
+                path.move(to: CGPoint(x: tdX - tk, y: flatB)); path.addLine(to: CGPoint(x: tdX + tk, y: flatB))
+                let wY = cy - innerD/2 + 12
+                path.move(to: CGPoint(x: cx - innerW/2, y: wY))
+                path.addLine(to: CGPoint(x: cx + innerW/2, y: wY))
+                path.move(to: CGPoint(x: cx - innerW/2, y: wY-3)); path.addLine(to: CGPoint(x: cx - innerW/2, y: wY+3))
+                path.move(to: CGPoint(x: cx + innerW/2, y: wY-3)); path.addLine(to: CGPoint(x: cx + innerW/2, y: wY+3))
+                let dX = cx + innerW/2 - 12
+                path.move(to: CGPoint(x: dX, y: cy - innerD/2))
+                path.addLine(to: CGPoint(x: dX, y: cy + innerD/2))
+                path.move(to: CGPoint(x: dX-3, y: cy - innerD/2)); path.addLine(to: CGPoint(x: dX+3, y: cy - innerD/2))
+                path.move(to: CGPoint(x: dX-3, y: cy + innerD/2)); path.addLine(to: CGPoint(x: dX+3, y: cy + innerD/2))
+            }
+            .stroke(Color.gray.opacity(0.65), lineWidth: 0.8)
+
+            // ── 4. フランジ寸法ラベル
+            Group {
+                Text(String(format: "H₁ = %d mm", Int(design.heights[0] * 1000)))
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundColor(Color(red: 0.1, green: 0.25, blue: 0.8))
+                    .position(x: cx, y: cy - innerD/2 - fh[0]/2)
+                Text(String(format: "H₂ = %d mm", Int(design.heights[1] * 1000)))
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundColor(Color(red: 0.1, green: 0.25, blue: 0.8))
+                    .position(x: cx, y: cy + innerD/2 + fh[1]/2)
+                Text(String(format: "H₃ = %d mm", Int(design.heights[2] * 1000)))
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundColor(Color(red: 0.1, green: 0.25, blue: 0.8))
+                    .rotationEffect(.degrees(-90))
+                    .position(x: cx + innerW/2 + fh[2]/2, y: cy)
+                Text(String(format: "H₄ = %d mm", Int(design.heights[3] * 1000)))
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundColor(Color(red: 0.1, green: 0.25, blue: 0.8))
+                    .rotationEffect(.degrees(90))
+                    .position(x: cx - innerW/2 - fh[3]/2, y: cy)
+            }
+
+            // ── 5. 底面・総寸法ラベル
+            Group {
+                Text(String(format: "W = %d mm", Int(design.width * 1000)))
+                    .font(.system(size: 8, weight: .semibold)).foregroundColor(.gray)
+                    .position(x: cx, y: cy - innerD/2 + 24)
+                Text(String(format: "flat %.1f", design.flatW * 1000))
+                    .font(.system(size: 7)).foregroundColor(Color.gray.opacity(0.8))
+                    .position(x: cx, y: cy - innerD/2 + 34)
+                Text(String(format: "D = %d mm", Int(design.depth * 1000)))
+                    .font(.system(size: 8, weight: .semibold)).foregroundColor(.gray)
+                    .rotationEffect(.degrees(-90))
+                    .position(x: cx + innerW/2 - 24, y: cy)
+                Text(String(format: "flat %.1f", design.flatD * 1000))
+                    .font(.system(size: 7)).foregroundColor(Color.gray.opacity(0.8))
+                    .rotationEffect(.degrees(-90))
+                    .position(x: cx + innerW/2 - 35, y: cy)
+                Text(String(format: "BA = %.2f mm", design.bendAllowance * 1000))
+                    .font(.system(size: 7)).foregroundColor(.orange)
+                    .position(x: cx - innerW/4, y: cy + innerD/2 - 10)
+                Text(String(format: "Total W: %.1f mm", totW))
+                    .font(.system(size: 8, weight: .bold)).foregroundColor(.black)
+                    .position(x: cx, y: flatB + 33)
+                Text(String(format: "Total D: %.1f mm", totD))
+                    .font(.system(size: 8, weight: .bold)).foregroundColor(.black)
+                    .rotationEffect(.degrees(-90))
+                    .position(x: flatL - 33, y: cy)
+            }
+        }
+        .frame(width: size.width, height: size.height)
+        .background(Color.white)
+        .cornerRadius(10)
+        .shadow(radius: 2)
+    }
+}
+
+// 4. 2D側のスライダー連動（縦横対応）
 struct DesignMapView: View {
     @ObservedObject var design: MetalDesign
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                Text("2D 展開図（板金バラ図）")
-                    .font(.headline)
-                    .padding(.top)
-
-                ZStack {
-                    let scale: CGFloat = 1800
-                    let w  = CGFloat(design.width)  * scale
-                    let d  = CGFloat(design.depth)  * scale
-                    let h  = design.heights.map { CGFloat($0) * scale }
-                    let ba = CGFloat(design.bendAllowance) * scale
-
-                    let cx: CGFloat = 175   // center X
-                    let cy: CGFloat = 168   // center Y (shifted up → room for total below)
-
-                    let innerW = w - ba
-                    let innerD = d - ba
-                    let fh    = h.map { $0 - ba / 2 }
-                    let earW:  CGFloat = design.withEars ? CGFloat(design.thickness) * scale : 0
-                    let trimPx: CGFloat = design.withEars ? CGFloat(0.001) * scale : 0
-
-                    // flat blank outer extents (for total dim lines)
-                    let flatL = cx - innerW/2 - fh[3]
-                    let flatR = cx + innerW/2 + fh[2]
-                    let flatT = cy - innerD/2 - fh[0]
-                    let flatB = cy + innerD/2 + fh[1]
-
-                    // totals in mm (Float)
-                    let totW = (design.flatW + design.flatH(2) + design.flatH(3)) * 1000
-                    let totD = (design.flatD + design.flatH(0) + design.flatH(1)) * 1000
-
-                    // ── 1. 底面折り曲げ線（赤破線）──────────────────────────────
-                    Rectangle()
-                        .stroke(Color.red, style: StrokeStyle(lineWidth: 1, dash: [4]))
-                        .frame(width: innerW, height: innerD)
-                        .position(x: cx, y: cy)
-
-                    // ── 2. 外形線 ────────────────────────────────────────────────
-                    Path { path in
-                        // H1 前（上）± earW
-                        path.move(to: CGPoint(x: cx - innerW/2 - earW, y: cy - innerD/2))
-                        path.addLine(to: CGPoint(x: cx - innerW/2 - earW, y: cy - innerD/2 - fh[0]))
-                        path.addLine(to: CGPoint(x: cx + innerW/2 + earW, y: cy - innerD/2 - fh[0]))
-                        path.addLine(to: CGPoint(x: cx + innerW/2 + earW, y: cy - innerD/2))
-                        // H2 後（下）± earW
-                        path.move(to: CGPoint(x: cx - innerW/2 - earW, y: cy + innerD/2))
-                        path.addLine(to: CGPoint(x: cx - innerW/2 - earW, y: cy + innerD/2 + fh[1]))
-                        path.addLine(to: CGPoint(x: cx + innerW/2 + earW, y: cy + innerD/2 + fh[1]))
-                        path.addLine(to: CGPoint(x: cx + innerW/2 + earW, y: cy + innerD/2))
-                        // H3 右（右）両端 trim
-                        path.move(to: CGPoint(x: cx + innerW/2, y: cy - innerD/2 + trimPx))
-                        path.addLine(to: CGPoint(x: cx + innerW/2 + fh[2], y: cy - innerD/2 + trimPx))
-                        path.addLine(to: CGPoint(x: cx + innerW/2 + fh[2], y: cy + innerD/2 - trimPx))
-                        path.addLine(to: CGPoint(x: cx + innerW/2, y: cy + innerD/2 - trimPx))
-                        // H4 左（左）両端 trim
-                        path.move(to: CGPoint(x: cx - innerW/2, y: cy - innerD/2 + trimPx))
-                        path.addLine(to: CGPoint(x: cx - innerW/2 - fh[3], y: cy - innerD/2 + trimPx))
-                        path.addLine(to: CGPoint(x: cx - innerW/2 - fh[3], y: cy + innerD/2 - trimPx))
-                        path.addLine(to: CGPoint(x: cx - innerW/2, y: cy + innerD/2 - trimPx))
+        GeometryReader { geo in
+            if geo.size.width > geo.size.height {
+                // ── Landscape: drawing fills left, controls scroll on right
+                HStack(spacing: 0) {
+                    FlatBlankView(design: design, size: CGSize(
+                        width: geo.size.width - 272,
+                        height: geo.size.height
+                    ))
+                    ScrollView {
+                        VStack(spacing: 12) {
+                            Text("板金バラ図")
+                                .font(.subheadline).fontWeight(.semibold)
+                                .padding(.top, 8)
+                            Divider()
+                            controlsContent()
+                        }
+                        .padding()
                     }
-                    .stroke(Color.primary, lineWidth: 2)
-
-                    // ── 3. 寸法線 ────────────────────────────────────────────────
-                    Path { path in
-                        let tk: CGFloat = 4   // tick half-length
-
-                        // Total W 寸法線（ブランク下）
-                        let twY = flatB + 20
-                        path.move(to: CGPoint(x: flatL, y: twY))
-                        path.addLine(to: CGPoint(x: flatR, y: twY))
-                        path.move(to: CGPoint(x: flatL, y: twY - tk)); path.addLine(to: CGPoint(x: flatL, y: twY + tk))
-                        path.move(to: CGPoint(x: flatR, y: twY - tk)); path.addLine(to: CGPoint(x: flatR, y: twY + tk))
-
-                        // Total D 寸法線（ブランク左）
-                        let tdX = flatL - 20
-                        path.move(to: CGPoint(x: tdX, y: flatT))
-                        path.addLine(to: CGPoint(x: tdX, y: flatB))
-                        path.move(to: CGPoint(x: tdX - tk, y: flatT)); path.addLine(to: CGPoint(x: tdX + tk, y: flatT))
-                        path.move(to: CGPoint(x: tdX - tk, y: flatB)); path.addLine(to: CGPoint(x: tdX + tk, y: flatB))
-
-                        // W 矢印（底面内・水平）
-                        let wY = cy - innerD/2 + 12
-                        path.move(to: CGPoint(x: cx - innerW/2, y: wY))
-                        path.addLine(to: CGPoint(x: cx + innerW/2, y: wY))
-                        path.move(to: CGPoint(x: cx - innerW/2, y: wY-3)); path.addLine(to: CGPoint(x: cx - innerW/2, y: wY+3))
-                        path.move(to: CGPoint(x: cx + innerW/2, y: wY-3)); path.addLine(to: CGPoint(x: cx + innerW/2, y: wY+3))
-
-                        // D 矢印（底面内・垂直）
-                        let dX = cx + innerW/2 - 12
-                        path.move(to: CGPoint(x: dX, y: cy - innerD/2))
-                        path.addLine(to: CGPoint(x: dX, y: cy + innerD/2))
-                        path.move(to: CGPoint(x: dX-3, y: cy - innerD/2)); path.addLine(to: CGPoint(x: dX+3, y: cy - innerD/2))
-                        path.move(to: CGPoint(x: dX-3, y: cy + innerD/2)); path.addLine(to: CGPoint(x: dX+3, y: cy + innerD/2))
-                    }
-                    .stroke(Color.gray.opacity(0.65), lineWidth: 0.8)
-
-                    // ── 4. フランジ寸法ラベル ────────────────────────────────────
-                    Group {
-                        // H1 前フランジ
-                        Text(String(format: "H₁ = %d mm", Int(design.heights[0] * 1000)))
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundColor(Color(red: 0.1, green: 0.25, blue: 0.8))
-                            .position(x: cx, y: cy - innerD/2 - fh[0]/2)
-                        // H2 後フランジ
-                        Text(String(format: "H₂ = %d mm", Int(design.heights[1] * 1000)))
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundColor(Color(red: 0.1, green: 0.25, blue: 0.8))
-                            .position(x: cx, y: cy + innerD/2 + fh[1]/2)
-                        // H3 右フランジ（回転）
-                        Text(String(format: "H₃ = %d mm", Int(design.heights[2] * 1000)))
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundColor(Color(red: 0.1, green: 0.25, blue: 0.8))
-                            .rotationEffect(.degrees(-90))
-                            .position(x: cx + innerW/2 + fh[2]/2, y: cy)
-                        // H4 左フランジ（回転）
-                        Text(String(format: "H₄ = %d mm", Int(design.heights[3] * 1000)))
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundColor(Color(red: 0.1, green: 0.25, blue: 0.8))
-                            .rotationEffect(.degrees(90))
-                            .position(x: cx - innerW/2 - fh[3]/2, y: cy)
-                    }
-
-                    // ── 5. 底面・総寸法ラベル ────────────────────────────────────
-                    Group {
-                        // W 仕上がり + フラット（底面内）
-                        Text(String(format: "W = %d mm", Int(design.width * 1000)))
-                            .font(.system(size: 8, weight: .semibold)).foregroundColor(.gray)
-                            .position(x: cx, y: cy - innerD/2 + 24)
-                        Text(String(format: "flat %.1f", design.flatW * 1000))
-                            .font(.system(size: 7)).foregroundColor(Color.gray.opacity(0.8))
-                            .position(x: cx, y: cy - innerD/2 + 34)
-                        // D 仕上がり + フラット（底面内・回転）
-                        Text(String(format: "D = %d mm", Int(design.depth * 1000)))
-                            .font(.system(size: 8, weight: .semibold)).foregroundColor(.gray)
-                            .rotationEffect(.degrees(-90))
-                            .position(x: cx + innerW/2 - 24, y: cy)
-                        Text(String(format: "flat %.1f", design.flatD * 1000))
-                            .font(.system(size: 7)).foregroundColor(Color.gray.opacity(0.8))
-                            .rotationEffect(.degrees(-90))
-                            .position(x: cx + innerW/2 - 35, y: cy)
-                        // BA（底面中央）
-                        Text(String(format: "BA = %.2f mm", design.bendAllowance * 1000))
-                            .font(.system(size: 7)).foregroundColor(.orange)
-                            .position(x: cx - innerW/4, y: cy + innerD/2 - 10)
-                        // Total W（下寸法線）
-                        Text(String(format: "Total W: %.1f mm", totW))
-                            .font(.system(size: 8, weight: .bold)).foregroundColor(.black)
-                            .position(x: cx, y: flatB + 33)
-                        // Total D（左寸法線・回転）
-                        Text(String(format: "Total D: %.1f mm", totD))
-                            .font(.system(size: 8, weight: .bold)).foregroundColor(.black)
-                            .rotationEffect(.degrees(-90))
-                            .position(x: flatL - 33, y: cy)
+                    .frame(width: 272)
+                    .background(Color(UIColor.secondarySystemGroupedBackground))
+                }
+            } else {
+                // ── Portrait: drawing then controls, scrollable
+                ScrollView {
+                    VStack(spacing: 20) {
+                        Text("2D 展開図（板金バラ図）")
+                            .font(.headline)
+                            .padding(.top)
+                        FlatBlankView(design: design, size: CGSize(
+                            width: geo.size.width - 32,
+                            height: geo.size.width - 32
+                        ))
+                        .padding(.horizontal, 16)
+                        controlsContent()
+                            .padding()
+                            .background(Color.secondary.opacity(0.1))
+                            .cornerRadius(12)
+                            .padding(.horizontal)
                     }
                 }
-                .frame(width: 350, height: 410)
-                .background(Color.white)
-                .cornerRadius(10)
-                .shadow(radius: 2)
-
-                // スライダー群
-                VStack(spacing: 12) {
-                    Group {
-                        SliderGroup(label: "幅 (W)", value: $design.width, range: 0.05...0.15)
-                        SliderGroup(label: "奥 (D)", value: $design.depth, range: 0.05...0.15)
-                    }
-                    Divider()
-                    Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 10) {
-                        GridRow {
-                            SliderGroup(label: "前 H₁", value: $design.heights[0], range: 0.01...0.1)
-                            SliderGroup(label: "後 H₂", value: $design.heights[1], range: 0.01...0.1)
-                        }
-                        GridRow {
-                            SliderGroup(label: "右 H₃", value: $design.heights[2], range: 0.01...0.1)
-                            SliderGroup(label: "左 H₄", value: $design.heights[3], range: 0.01...0.1)
-                        }
-                    }
-                    Divider()
-                    SliderGroup(label: "板厚 (t)", value: $design.thickness, range: 0.0005...0.004)
-                    SliderGroup(label: "内半径 (r)", value: $design.innerRadius, range: 0.0005...0.006)
-                    VStack(alignment: .leading) {
-                        HStack {
-                            Text("Kファクター")
-                            Spacer()
-                            Text(String(format: "%.2f", design.kFactor)).bold()
-                        }
-                        Slider(value: $design.kFactor, in: 0.1...0.5)
-                        Text("空曲げ 0.33 · 底付き 0.38 · コイニング 0.42")
-                            .font(.caption2).foregroundColor(.secondary)
-                    }
-                    HStack {
-                        Text("曲げ代 BA")
-                        Spacer()
-                        Text(String(format: "%.2f mm", design.bendAllowance * 1000))
-                            .bold().foregroundColor(.orange)
-                    }
-                    Text("= π/2 × (r + K · t)  ※自動計算")
-                        .font(.caption2).foregroundColor(.secondary)
-                    Divider()
-                    Toggle(isOn: $design.withEars) {
-                        Text("耳付き H₁/H₂ · H₃/H₄ トリム")
-                    }
-                    .tint(.blue)
-                }
-                .padding()
-                .background(Color.secondary.opacity(0.1))
-                .cornerRadius(12)
-                .padding(.horizontal)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func controlsContent() -> some View {
+        VStack(spacing: 12) {
+            Group {
+                SliderGroup(label: "幅 (W)", value: $design.width, range: 0.05...0.15)
+                SliderGroup(label: "奥 (D)", value: $design.depth, range: 0.05...0.15)
+            }
+            Divider()
+            Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 10) {
+                GridRow {
+                    SliderGroup(label: "前 H₁", value: $design.heights[0], range: 0.01...0.1)
+                    SliderGroup(label: "後 H₂", value: $design.heights[1], range: 0.01...0.1)
+                }
+                GridRow {
+                    SliderGroup(label: "右 H₃", value: $design.heights[2], range: 0.01...0.1)
+                    SliderGroup(label: "左 H₄", value: $design.heights[3], range: 0.01...0.1)
+                }
+            }
+            Divider()
+            SliderGroup(label: "板厚 (t)", value: $design.thickness, range: 0.0005...0.004)
+            SliderGroup(label: "内半径 (r)", value: $design.innerRadius, range: 0.0005...0.006)
+            VStack(alignment: .leading) {
+                HStack {
+                    Text("Kファクター")
+                    Spacer()
+                    Text(String(format: "%.2f", design.kFactor)).bold()
+                }
+                Slider(value: $design.kFactor, in: 0.1...0.5)
+                Text("空曲げ 0.33 · 底付き 0.38 · コイニング 0.42")
+                    .font(.caption2).foregroundColor(.secondary)
+            }
+            HStack {
+                Text("曲げ代 BA")
+                Spacer()
+                Text(String(format: "%.2f mm", design.bendAllowance * 1000))
+                    .bold().foregroundColor(.orange)
+            }
+            Text("= π/2 × (r + K · t)  ※自動計算")
+                .font(.caption2).foregroundColor(.secondary)
+            Divider()
+            Toggle(isOn: $design.withEars) {
+                Text("耳付き H₁/H₂ · H₃/H₄ トリム")
+            }
+            .tint(.blue)
         }
     }
 }
