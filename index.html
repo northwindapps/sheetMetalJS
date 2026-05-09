@@ -119,33 +119,37 @@ function geo() {
   const { W, D, H, T, R, K } = M;
   const BA = (Math.PI / 2) * (R + K * T);   // BA = π/2 × (r + K·t)
   const [hF, hB, hR, hL] = H;
-  const iW = W - 2 * BA;   // flat bottom width  (W minus two bend allowances)
-  const iD = D - 2 * BA;   // flat bottom depth
-  if (iW <= 0 || iD <= 0) return null;
-  const tW = hL + iW + hR;
-  const tH = hF + iD + hB;
+  const iW  = W - BA;         // flat bottom width  (2 bends × BA/2 each = BA total)
+  const iD  = D - BA;         // flat bottom depth
+  const fhF = hF - BA / 2;   // flat front flange  (1 bend × BA/2)
+  const fhB = hB - BA / 2;   // flat back flange
+  const fhR = hR - BA / 2;   // flat right flange
+  const fhL = hL - BA / 2;   // flat left flange
+  if (iW <= 0 || iD <= 0 || fhF <= 0 || fhB <= 0 || fhR <= 0 || fhL <= 0) return null;
+  const tW = fhL + iW + fhR;
+  const tH = fhF + iD + fhB;
   // Cross-shaped profile, clockwise from top-left of front flange
   const profile = [
-    [hL,        0         ],
-    [hL + iW,   0         ],
-    [hL + iW,   hF        ],
-    [hL + iW + hR, hF     ],
-    [hL + iW + hR, hF + iD],
-    [hL + iW,   hF + iD   ],
-    [hL + iW,   hF + iD + hB],
-    [hL,        hF + iD + hB],
-    [hL,        hF + iD   ],
-    [0,         hF + iD   ],
-    [0,         hF        ],
-    [hL,        hF        ],
+    [fhL,             0              ],
+    [fhL + iW,        0              ],
+    [fhL + iW,        fhF            ],
+    [fhL + iW + fhR,  fhF            ],
+    [fhL + iW + fhR,  fhF + iD      ],
+    [fhL + iW,        fhF + iD      ],
+    [fhL + iW,        fhF + iD + fhB],
+    [fhL,             fhF + iD + fhB],
+    [fhL,             fhF + iD      ],
+    [0,               fhF + iD      ],
+    [0,               fhF            ],
+    [fhL,             fhF            ],
   ];
   const bends = [
-    [[hL, hF],      [hL + iW, hF]     ],  // front fold line
-    [[hL, hF + iD], [hL + iW, hF + iD]],  // back fold line
-    [[hL, hF],      [hL, hF + iD]     ],  // left fold line
-    [[hL + iW, hF], [hL + iW, hF + iD]],  // right fold line
+    [[fhL, fhF],       [fhL + iW, fhF]       ],  // front fold line
+    [[fhL, fhF + iD],  [fhL + iW, fhF + iD]  ],  // back fold line
+    [[fhL, fhF],       [fhL, fhF + iD]        ],  // left fold line
+    [[fhL + iW, fhF],  [fhL + iW, fhF + iD]  ],  // right fold line
   ];
-  return { iW, iD, tW, tH, hF, hB, hR, hL, profile, bends };
+  return { iW, iD, tW, tH, hF: fhF, hB: fhB, hR: fhR, hL: fhL, profile, bends };
 }
 
 // ── Canvas ────────────────────────────────────────────────────────────────────
