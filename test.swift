@@ -87,67 +87,155 @@ struct DesignMapView: View {
 
                 ZStack {
                     let scale: CGFloat = 1800
-                    let w = CGFloat(design.width) * scale
-                    let d = CGFloat(design.depth) * scale
-                    let h = design.heights.map { CGFloat($0) * scale }
+                    let w  = CGFloat(design.width)  * scale
+                    let d  = CGFloat(design.depth)  * scale
+                    let h  = design.heights.map { CGFloat($0) * scale }
                     let ba = CGFloat(design.bendAllowance) * scale
 
-                    let centerX: CGFloat = 175
-                    let centerY: CGFloat = 175
+                    let cx: CGFloat = 175   // center X
+                    let cy: CGFloat = 168   // center Y (shifted up → room for total below)
 
-                    // フラットブランク底面 (W-BA, D-BA)
                     let innerW = w - ba
                     let innerD = d - ba
-                    // フランジ高さ = H - BA/2 (1曲げ分)
-                    let fh = h.map { $0 - ba / 2 }
-                    // 耳幅 = 板厚、トリム量 = 1mm
-                    let earW: CGFloat = design.withEars ? CGFloat(design.thickness) * scale : 0
-                    let trimD: CGFloat = design.withEars ? CGFloat(0.001) * scale : 0
+                    let fh    = h.map { $0 - ba / 2 }
+                    let earW:  CGFloat = design.withEars ? CGFloat(design.thickness) * scale : 0
+                    let trimPx: CGFloat = design.withEars ? CGFloat(0.001) * scale : 0
 
-                    // 1. 底面（曲げ線枠）
+                    // flat blank outer extents (for total dim lines)
+                    let flatL = cx - innerW/2 - fh[3]
+                    let flatR = cx + innerW/2 + fh[2]
+                    let flatT = cy - innerD/2 - fh[0]
+                    let flatB = cy + innerD/2 + fh[1]
+
+                    // totals in mm (Float)
+                    let totW = (design.flatW + design.flatH(2) + design.flatH(3)) * 1000
+                    let totD = (design.flatD + design.flatH(0) + design.flatH(1)) * 1000
+
+                    // ── 1. 底面折り曲げ線（赤破線）──────────────────────────────
                     Rectangle()
                         .stroke(Color.red, style: StrokeStyle(lineWidth: 1, dash: [4]))
                         .frame(width: innerW, height: innerD)
-                        .position(x: centerX, y: centerY)
+                        .position(x: cx, y: cy)
 
-                    // 2. 外形線（フランジ部分）
-                    // H1/H2: 耳付き（earW拡張）, H3/H4: 両端trimDトリム
+                    // ── 2. 外形線 ────────────────────────────────────────────────
                     Path { path in
-                        // 前 H1 (上方向) ± earW
-                        path.move(to: CGPoint(x: centerX - innerW/2 - earW, y: centerY - innerD/2))
-                        path.addLine(to: CGPoint(x: centerX - innerW/2 - earW, y: centerY - innerD/2 - fh[0]))
-                        path.addLine(to: CGPoint(x: centerX + innerW/2 + earW, y: centerY - innerD/2 - fh[0]))
-                        path.addLine(to: CGPoint(x: centerX + innerW/2 + earW, y: centerY - innerD/2))
-
-                        // 後 H2 (下方向) ± earW
-                        path.move(to: CGPoint(x: centerX - innerW/2 - earW, y: centerY + innerD/2))
-                        path.addLine(to: CGPoint(x: centerX - innerW/2 - earW, y: centerY + innerD/2 + fh[1]))
-                        path.addLine(to: CGPoint(x: centerX + innerW/2 + earW, y: centerY + innerD/2 + fh[1]))
-                        path.addLine(to: CGPoint(x: centerX + innerW/2 + earW, y: centerY + innerD/2))
-
-                        // 右 H3 (右方向) 両端 trimD トリム
-                        path.move(to: CGPoint(x: centerX + innerW/2, y: centerY - innerD/2 + trimD))
-                        path.addLine(to: CGPoint(x: centerX + innerW/2 + fh[2], y: centerY - innerD/2 + trimD))
-                        path.addLine(to: CGPoint(x: centerX + innerW/2 + fh[2], y: centerY + innerD/2 - trimD))
-                        path.addLine(to: CGPoint(x: centerX + innerW/2, y: centerY + innerD/2 - trimD))
-
-                        // 左 H4 (左方向) 両端 trimD トリム
-                        path.move(to: CGPoint(x: centerX - innerW/2, y: centerY - innerD/2 + trimD))
-                        path.addLine(to: CGPoint(x: centerX - innerW/2 - fh[3], y: centerY - innerD/2 + trimD))
-                        path.addLine(to: CGPoint(x: centerX - innerW/2 - fh[3], y: centerY + innerD/2 - trimD))
-                        path.addLine(to: CGPoint(x: centerX - innerW/2, y: centerY + innerD/2 - trimD))
+                        // H1 前（上）± earW
+                        path.move(to: CGPoint(x: cx - innerW/2 - earW, y: cy - innerD/2))
+                        path.addLine(to: CGPoint(x: cx - innerW/2 - earW, y: cy - innerD/2 - fh[0]))
+                        path.addLine(to: CGPoint(x: cx + innerW/2 + earW, y: cy - innerD/2 - fh[0]))
+                        path.addLine(to: CGPoint(x: cx + innerW/2 + earW, y: cy - innerD/2))
+                        // H2 後（下）± earW
+                        path.move(to: CGPoint(x: cx - innerW/2 - earW, y: cy + innerD/2))
+                        path.addLine(to: CGPoint(x: cx - innerW/2 - earW, y: cy + innerD/2 + fh[1]))
+                        path.addLine(to: CGPoint(x: cx + innerW/2 + earW, y: cy + innerD/2 + fh[1]))
+                        path.addLine(to: CGPoint(x: cx + innerW/2 + earW, y: cy + innerD/2))
+                        // H3 右（右）両端 trim
+                        path.move(to: CGPoint(x: cx + innerW/2, y: cy - innerD/2 + trimPx))
+                        path.addLine(to: CGPoint(x: cx + innerW/2 + fh[2], y: cy - innerD/2 + trimPx))
+                        path.addLine(to: CGPoint(x: cx + innerW/2 + fh[2], y: cy + innerD/2 - trimPx))
+                        path.addLine(to: CGPoint(x: cx + innerW/2, y: cy + innerD/2 - trimPx))
+                        // H4 左（左）両端 trim
+                        path.move(to: CGPoint(x: cx - innerW/2, y: cy - innerD/2 + trimPx))
+                        path.addLine(to: CGPoint(x: cx - innerW/2 - fh[3], y: cy - innerD/2 + trimPx))
+                        path.addLine(to: CGPoint(x: cx - innerW/2 - fh[3], y: cy + innerD/2 - trimPx))
+                        path.addLine(to: CGPoint(x: cx - innerW/2, y: cy + innerD/2 - trimPx))
                     }
                     .stroke(Color.primary, lineWidth: 2)
 
-                    // 3. 寸法テキスト
+                    // ── 3. 寸法線 ────────────────────────────────────────────────
+                    Path { path in
+                        let tk: CGFloat = 4   // tick half-length
+
+                        // Total W 寸法線（ブランク下）
+                        let twY = flatB + 20
+                        path.move(to: CGPoint(x: flatL, y: twY))
+                        path.addLine(to: CGPoint(x: flatR, y: twY))
+                        path.move(to: CGPoint(x: flatL, y: twY - tk)); path.addLine(to: CGPoint(x: flatL, y: twY + tk))
+                        path.move(to: CGPoint(x: flatR, y: twY - tk)); path.addLine(to: CGPoint(x: flatR, y: twY + tk))
+
+                        // Total D 寸法線（ブランク左）
+                        let tdX = flatL - 20
+                        path.move(to: CGPoint(x: tdX, y: flatT))
+                        path.addLine(to: CGPoint(x: tdX, y: flatB))
+                        path.move(to: CGPoint(x: tdX - tk, y: flatT)); path.addLine(to: CGPoint(x: tdX + tk, y: flatT))
+                        path.move(to: CGPoint(x: tdX - tk, y: flatB)); path.addLine(to: CGPoint(x: tdX + tk, y: flatB))
+
+                        // W 矢印（底面内・水平）
+                        let wY = cy - innerD/2 + 12
+                        path.move(to: CGPoint(x: cx - innerW/2, y: wY))
+                        path.addLine(to: CGPoint(x: cx + innerW/2, y: wY))
+                        path.move(to: CGPoint(x: cx - innerW/2, y: wY-3)); path.addLine(to: CGPoint(x: cx - innerW/2, y: wY+3))
+                        path.move(to: CGPoint(x: cx + innerW/2, y: wY-3)); path.addLine(to: CGPoint(x: cx + innerW/2, y: wY+3))
+
+                        // D 矢印（底面内・垂直）
+                        let dX = cx + innerW/2 - 12
+                        path.move(to: CGPoint(x: dX, y: cy - innerD/2))
+                        path.addLine(to: CGPoint(x: dX, y: cy + innerD/2))
+                        path.move(to: CGPoint(x: dX-3, y: cy - innerD/2)); path.addLine(to: CGPoint(x: dX+3, y: cy - innerD/2))
+                        path.move(to: CGPoint(x: dX-3, y: cy + innerD/2)); path.addLine(to: CGPoint(x: dX+3, y: cy + innerD/2))
+                    }
+                    .stroke(Color.gray.opacity(0.65), lineWidth: 0.8)
+
+                    // ── 4. フランジ寸法ラベル ────────────────────────────────────
                     Group {
-                        Text("W=\(Int(design.width * 1000)) BA=\(String(format:"%.1f", design.bendAllowance * 1000))mm")
-                            .font(.caption2).position(x: centerX, y: centerY + innerD/2 + 20)
-                        Text("H₁=\(Int(design.heights[0] * 1000))")
-                            .font(.caption2).position(x: centerX + innerW/2 + earW + 15, y: centerY - innerD/2 - fh[0]/2)
+                        // H1 前フランジ
+                        Text(String(format: "H₁ = %d mm", Int(design.heights[0] * 1000)))
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundColor(Color(red: 0.1, green: 0.25, blue: 0.8))
+                            .position(x: cx, y: cy - innerD/2 - fh[0]/2)
+                        // H2 後フランジ
+                        Text(String(format: "H₂ = %d mm", Int(design.heights[1] * 1000)))
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundColor(Color(red: 0.1, green: 0.25, blue: 0.8))
+                            .position(x: cx, y: cy + innerD/2 + fh[1]/2)
+                        // H3 右フランジ（回転）
+                        Text(String(format: "H₃ = %d mm", Int(design.heights[2] * 1000)))
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundColor(Color(red: 0.1, green: 0.25, blue: 0.8))
+                            .rotationEffect(.degrees(-90))
+                            .position(x: cx + innerW/2 + fh[2]/2, y: cy)
+                        // H4 左フランジ（回転）
+                        Text(String(format: "H₄ = %d mm", Int(design.heights[3] * 1000)))
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundColor(Color(red: 0.1, green: 0.25, blue: 0.8))
+                            .rotationEffect(.degrees(90))
+                            .position(x: cx - innerW/2 - fh[3]/2, y: cy)
+                    }
+
+                    // ── 5. 底面・総寸法ラベル ────────────────────────────────────
+                    Group {
+                        // W 仕上がり + フラット（底面内）
+                        Text(String(format: "W = %d mm", Int(design.width * 1000)))
+                            .font(.system(size: 8, weight: .semibold)).foregroundColor(.gray)
+                            .position(x: cx, y: cy - innerD/2 + 24)
+                        Text(String(format: "flat %.1f", design.flatW * 1000))
+                            .font(.system(size: 7)).foregroundColor(Color.gray.opacity(0.8))
+                            .position(x: cx, y: cy - innerD/2 + 34)
+                        // D 仕上がり + フラット（底面内・回転）
+                        Text(String(format: "D = %d mm", Int(design.depth * 1000)))
+                            .font(.system(size: 8, weight: .semibold)).foregroundColor(.gray)
+                            .rotationEffect(.degrees(-90))
+                            .position(x: cx + innerW/2 - 24, y: cy)
+                        Text(String(format: "flat %.1f", design.flatD * 1000))
+                            .font(.system(size: 7)).foregroundColor(Color.gray.opacity(0.8))
+                            .rotationEffect(.degrees(-90))
+                            .position(x: cx + innerW/2 - 35, y: cy)
+                        // BA（底面中央）
+                        Text(String(format: "BA = %.2f mm", design.bendAllowance * 1000))
+                            .font(.system(size: 7)).foregroundColor(.orange)
+                            .position(x: cx - innerW/4, y: cy + innerD/2 - 10)
+                        // Total W（下寸法線）
+                        Text(String(format: "Total W: %.1f mm", totW))
+                            .font(.system(size: 8, weight: .bold)).foregroundColor(.black)
+                            .position(x: cx, y: flatB + 33)
+                        // Total D（左寸法線・回転）
+                        Text(String(format: "Total D: %.1f mm", totD))
+                            .font(.system(size: 8, weight: .bold)).foregroundColor(.black)
+                            .rotationEffect(.degrees(-90))
+                            .position(x: flatL - 33, y: cy)
                     }
                 }
-                .frame(width: 350, height: 350)
+                .frame(width: 350, height: 410)
                 .background(Color.white)
                 .cornerRadius(10)
                 .shadow(radius: 2)
